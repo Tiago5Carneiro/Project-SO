@@ -1,0 +1,6 @@
+bin/*
+tmp/*
+obj/*
+!bin/.gitkeep
+!tmp/.gitkeep
+!obj/.gitkeep
