@@ -1,10 +1,12 @@
+#include <unistd.h> 	/* chamadas ao sistema: defs e decls essenciais */
+#include <fcntl.h>  	/* O_RDONLY, O_WRONLY, O_CREAT, O_APPEND, O_RDWR , O_TRUNC, O_EXCL, O_* */
+#include <stdlib.h> 	/* Malloc */
+#include <stdio.h>  	/* printf */
+#include <signal.h> 	/* signals (SIGTERM, SIGALARM)*/
+#include <sys/stat.h> 	/* mkfifo */
+#include <sys/wait.h> 	/* wait */
 #include <sys/types.h>
-#include <unistd.h> /* chamadas ao sistema: defs e decls essenciais */
-#include <fcntl.h>  /* O_RDONLY, O_WRONLY, O_CREAT, O_APPEND, O_RDWR , O_TRUNC, O_EXCL, O_* */
-#include <stdlib.h> /* Malloc */
-#include <stdio.h>  /* printf */
-#include <signal.h> /* signals (SIGTERM, SIGALARM)*/
-#include <sys/stat.h> /* mkfifo */
+
 
 #define BUFFER_SIZE 1024
 
@@ -62,6 +64,7 @@ int main(int argc, char* argv[]){
 			// filho
 			read(client_fd,buff,BUFFER_SIZE);
 			printf("%s\n",buff);
+			write(server_fd,"done",sizeof(char)*4);
 			_exit(0);
 		}
 		else{
