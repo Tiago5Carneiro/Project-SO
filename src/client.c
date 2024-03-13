@@ -17,19 +17,23 @@ void handle_usr1(){
 
 }
 
+// Funcao para escrever o status para o fifo do cliente 
 int status(int server_fifo,int client_fifo){
 
 	printf("Getting status ...\n");
 
+	// Escrever status
 	write(client_fifo,"status",sizeof(char)*6);
 
+
+	// Ficar a espera da resposta de volta do servidor que ele vai mandar pelo seu fifo
 	read(server_fifo,buff,BUFF_SIZE);
 
 	printf("%s\n",buff);
 	return 0;
 } 
 
-
+// Funcao para escrever o execute para o fifo do cliente 
 int execute(int client_fifo, char* command){
 
 	printf("Executing ...\n");
@@ -37,6 +41,8 @@ int execute(int client_fifo, char* command){
 	// Escrever no fifo para o servidor receber
 	write(client_fifo,command,sizeof(command));
 
+
+	// Esperar pela resposta do servidor que vai ser mandada pelo seu fifo
 	read(server_fifo,buff,BUFF_SIZE);
 
 	printf("%s\n",buff);
