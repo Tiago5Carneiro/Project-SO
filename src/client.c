@@ -62,12 +62,12 @@ void handle_signalterm(){
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+9,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+9,pid_name);
 
 	unlink(client_fifo);
 	
@@ -86,12 +86,12 @@ void handle_signalint(){
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+9,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+9,pid_name);
 
 	unlink(client_fifo);
 
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]){
 	}
 
 	// Colucar o pid numa string para depois usar para criar os seus fifos respetivos
-	int pid = getpid();
+	pid_t pid = getpid();
 	char pid_name[19];
 	itoa(pid,pid_name);
 
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]){
 
 	// String que vai conter o path e nome do fifo de escrita do cliente
 	char client_fifo[26];
-	printf("Pid : \n",pid_name);
+	printf("Pid : %s\n",&pid_name);
 	strcpy(client_fifo,"./tmp/w_");
 	strcpy(client_fifo+8,pid_name);
 
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]){
 	}
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	if(mkfifo(client_fifo,0666)==-1){
 		perror("Criacao fifo leitura");
@@ -217,12 +217,12 @@ int main(int argc, char* argv[]){
 	printf("Hello\n");
 	send_status();
     strcpy(client_fifo,"./tmp/w_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+9,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcat(client_fifo+9,pid_name);
+	strcpy(client_fifo+9,pid_name);
 
 	unlink(client_fifo);
 
