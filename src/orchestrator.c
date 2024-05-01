@@ -136,7 +136,7 @@ int main(int argc, char* argv[]){
 	output_path = argv[1];
 
 	// Make fifos
-	if(mkfifo("./tmp/server_fifo",0644)==-1){
+	if(mkfifo("./tmp/server_fifo",0666)==-1){
 	 	perror("Fifo server");
 	 	return -1;
 	 }

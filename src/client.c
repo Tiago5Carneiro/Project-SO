@@ -149,7 +149,7 @@ int main(int argc, char* argv[]){
 	char pid_name[19];
 	itoa(pid,pid_name);
 
-	if (write(server_fifo,pid_name,sizeof(pid_t))==-1){
+	if (write(server_fifo,&pid,sizeof(pid_t))==-1){
 		perror("Write Pid Fifo");
 		return 1;
 	}
