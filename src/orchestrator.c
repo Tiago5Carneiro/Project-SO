@@ -147,7 +147,11 @@ int main(int argc, char* argv[]){
 
 	// // Descritores para os fifos
 	int server_fd = open("./tmp/server_fifo",O_RDONLY);
-	
+	if(server_fd == -1){
+		perror("server fifo");
+		return 1;
+	}
+
 	pid_t pid;
 	int i;
 	int status;
@@ -173,11 +177,19 @@ int main(int argc, char* argv[]){
 			strcpy(client_fifo+7,pid_name);
 
 			int read_client_fifo = open(client_fifo,O_RDONLY);
+			if(read_client_fifo == -1){
+				perror("fifo de leitura");
+				return 1;
+			}
 
 			strcpy(client_fifo,"tmp/r_");
 			strcpy(client_fifo+7,pid_name);
 
 			int write_client_fifo = open(client_fifo,O_WRONLY);
+			if(write_client_fifo == -1){
+				perror("fifo de escrita");
+				return 1;
+			}
 
 			read(read_client_fifo,buff,BUFFER_SIZE);
 			
