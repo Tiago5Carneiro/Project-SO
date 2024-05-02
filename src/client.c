@@ -62,12 +62,12 @@ void handle_signalterm(){
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
 	
@@ -86,12 +86,12 @@ void handle_signalint(){
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
 
@@ -108,25 +108,40 @@ int send_status(){
 	printf("Getting status ...\n");
 
 	// Escrever status
-	write(write_fifo,"status",sizeof(char)*6);
+	if(write(write_fifo,"status",sizeof(char)*6) == -1){
+		perror("escrever status");
+		return 1;
+	}
 
 	// Ficar a espera da resposta de volta do servidor que ele vai mandar pelo seu fifo
-	read(read_fifo,buff,BUFF_SIZE);
+	int rd_fifo = read(read_fifo,buff,BUFF_SIZE);
+	if(rd_fifo == -1){
+		perror("fifo leitura");
+		return 1;
+	}
+	buff[rd_fifo] = '\0';
 
 	printf("Message : %s\n",buff);
 	return 0;
 } 
 
 // Funcao para escrever o execute para o fifo do cliente 
-int execute(int client_fifo, char* command){
+int execute(char* command){
 
 	printf("Executing ...\n");
 	
 	// Escrever no fifo para o servidor receber
-	write(write_fifo,command,sizeof(command));
+	if(write(write_fifo,command,sizeof(command)) == -1){
+		perror("execute");
+		return 1;
+	}
 
 	// Esperar pela resposta do servidor que vai ser mandada pelo seu fifo
-	read(server_fifo,buff,BUFF_SIZE);
+	int ex = read(server_fifo,buff,BUFF_SIZE);
+	if(ex == -1){
+		perror("execute");
+		return 1;
+	}
 
 	printf("%s\n",buff);
 
@@ -148,7 +163,7 @@ int main(int argc, char* argv[]){
 
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	if(mkfifo(client_fifo,0666)==-1){
 		perror("Criacao fifo escrita");
@@ -156,7 +171,7 @@ int main(int argc, char* argv[]){
 	}
 
 	strcpy(client_fifo2,"./tmp/r_");
-	strcpy(client_fifo2+8,pid_name);
+	strcat(client_fifo2,pid_name);
 
 	if(mkfifo(client_fifo2,0666)==-1){
 		perror("Criacao fifo leitura");
@@ -186,42 +201,61 @@ int main(int argc, char* argv[]){
 
 	bool type=0;
 
-	/*
+	
 	// Verificar se e um execute ou um status
 	(strcmp(argv[1],"execute")==0) ? type = 1 : ((strcmp(argv[1],"status")==0) ? type = 0 : perror("Arguments"));
 
 	if (type) {
 		// Execute
-		
+		// time - int
 		// mode = {p,u}
     	// u - comando individual
     	// p - pipeline de comandos
-    	char mode = argv[2][1];
-    
+    	char mode = argv[3];
+
     	//switch para o mode selecionado
-        switch (mode) {    
-            case 'p':
-                break;
-    
-            default:
-                printf("Invalid mode\n");
-                return 1;
-        }
+        if(!(strcmp(mode, "-u") || strcmp(mode, "-p"))){    
+			perror("args");
+			return 1;
+		}
+		// Calcular o tamanho total necessário para a string
+		int total_size = 0;
+		for(int i = 1; i < argc; i++) {
+    		total_size += strlen(argv[i]) + 1; // +1 para o espaço entre argumentos
+		}
+
+		// Alocar memória para a string
+		char *args_string = malloc(total_size);
+		if(args_string == NULL) {
+    		perror("malloc");
+    		return 1;
+		}
+
+		// Inicializar a string com o primeiro argumento
+		strcpy(args_string, argv[1]);
+
+		// Concatenar os argumentos restantes
+		for(int i = 2; i < argc; i++) {
+    		strcat(args_string, " ");
+    		strcat(args_string, argv[i]);
+		}
+
+		// Agora, args_string contém todos os argumentos a partir de argv[1] como uma única string.
+		// Você pode enviá-la como quiser.
+		execute(args_string);
     }
     else{
     	// Status
     	send_status();
     }    
-	
-	*/
-	send_status();
+
     strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+8,pid_name);
+	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
 
