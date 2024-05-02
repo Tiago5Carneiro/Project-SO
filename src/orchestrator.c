@@ -177,7 +177,7 @@ int main(int argc, char* argv[]){
 			itoa(pid,pid_name);
 			strcpy(client_fifo,"./tmp/w_");
 			strcpy(client_fifo+8,pid_name);
-			printf("Pid cliente :%s\n",&pid_name);
+			printf("Pid cliente :%s\n",pid_name);
 
 			int read_client_fifo = open(client_fifo,O_RDONLY);
 			if(read_client_fifo == -1){

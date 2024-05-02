@@ -138,25 +138,15 @@ int main(int argc, char* argv[]){
 	signal(SIGINT,handle_signalint);
 	signal(SIGTERM,handle_signalterm);
 
-	// Abertura dos fifos 
-	if((server_fifo = open("./tmp/server_fifo", O_WRONLY)) == -1){
-		perror("server fifo");
-		return 1;
-	}
-
+	// String que vai conter o path e nome do fifo de escrita do cliente
+	char client_fifo[256];
+	char client_fifo2[256];
 	// Colucar o pid numa string para depois usar para criar os seus fifos respetivos
 	int pid = getpid();
 	char pid_name[19];
 	itoa(pid,pid_name);
 
-	if (write(server_fifo,&pid,sizeof(int))==-1){
-		perror("Write Pid Fifo");
-		return 1;
-	}
 
-	// String que vai conter o path e nome do fifo de escrita do cliente
-	char client_fifo[26];
-	printf("Pid : %s\n",&pid_name);
 	strcpy(client_fifo,"./tmp/w_");
 	strcpy(client_fifo+8,pid_name);
 
@@ -165,20 +155,31 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
+	strcpy(client_fifo2,"./tmp/r_");
+	strcpy(client_fifo2+8,pid_name);
+
+	if(mkfifo(client_fifo2,0666)==-1){
+		perror("Criacao fifo leitura");
+		return 1;
+	}
+
+	// Abertura dos fifos 
+	if((server_fifo = open("./tmp/server_fifo", O_WRONLY)) == -1){
+		perror("server fifo");
+		return 1;
+	}
+
+	if (write(server_fifo,&pid,sizeof(int))==-1){
+		perror("Write Pid Fifo");
+		return 1;
+	}
+
 	if((write_fifo = open(client_fifo,O_WRONLY)) == -1){
 		perror("fifo escrita");
 		return 1;
 	}
 
-	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+8,pid_name);
-
-	if(mkfifo(client_fifo,0666)==-1){
-		perror("Criacao fifo leitura");
-		return 1;
-	}
-
-	if((read_fifo = open(client_fifo,O_RDONLY)) == -1){
+	if((read_fifo = open(client_fifo2,O_RDONLY)) == -1){
 		perror("fifo leitura");
 		return 1;
 	}
