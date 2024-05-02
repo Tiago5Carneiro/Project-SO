@@ -3,6 +3,6 @@ Trabálho prático para a cadeira de Sistemas Operativos
 
 Autores:
 
-* [Manuel Fernandes](https://github.com/FireSkills1)
+* [Tiago Guedes](https://github.com/guedes674)
 * [Tiago Carneiro](https://github.com/Tiago5Carneiro)
-* [Roberto Capela](https://github.com/reset3)
+* [Roberto Capela](https://github.com/Harkeld)
