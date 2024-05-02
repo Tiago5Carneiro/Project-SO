@@ -212,7 +212,7 @@ int main(int argc, char* argv[]){
 		// mode = {p,u}
     	// u - comando individual
     	// p - pipeline de comandos
-    	char mode = argv[3];
+    	char *mode = argv[3];
 
     	//verificacão se é um dos modos predefinidos
         if(!(strcmp(mode, "-u") || strcmp(mode, "-p"))){    
@@ -227,7 +227,8 @@ int main(int argc, char* argv[]){
 		}
 
 		// criar a string com os argumentos do execute até ao fim do argv
-		char *args_string = malloc(total_size);
+		char *args_string; 
+		args_string = (char *) malloc(total_size);
 		if(args_string == NULL) {
     		perror("malloc");
     		return 1;
