@@ -5,4 +5,4 @@ Autores:
 
 * [Tiago Guedes](https://github.com/guedes674)
 * [Tiago Carneiro](https://github.com/Tiago5Carneiro)
-* [Roberto Capela](https://github.com/Harkeld)
+* [Goncalo Moreira](https://github.com/Harkeld)

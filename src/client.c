@@ -62,12 +62,12 @@ void handle_signalterm(){
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	unlink(client_fifo);
 	
@@ -86,12 +86,12 @@ void handle_signalint(){
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	unlink(client_fifo);
 
@@ -139,17 +139,17 @@ int main(int argc, char* argv[]){
 	signal(SIGTERM,handle_signalterm);
 
 	// Abertura dos fifos 
-	if(server_fifo = open("./tmp/server_fifo", O_WRONLY) == -1){
+	if((server_fifo = open("./tmp/server_fifo", O_WRONLY)) == -1){
 		perror("server fifo");
 		return 1;
 	}
 
 	// Colucar o pid numa string para depois usar para criar os seus fifos respetivos
-	pid_t pid = getpid();
+	int pid = getpid();
 	char pid_name[19];
 	itoa(pid,pid_name);
 
-	if (write(server_fifo,&pid,sizeof(pid_t))==-1){
+	if (write(server_fifo,&pid,sizeof(int))==-1){
 		perror("Write Pid Fifo");
 		return 1;
 	}
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	if(write_fifo = open(client_fifo,O_WRONLY) == -1){
+	if((write_fifo = open(client_fifo,O_WRONLY)) == -1){
 		perror("fifo escrita");
 		return 1;
 	}
@@ -178,7 +178,7 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	if(read_fifo = open(client_fifo,O_RDONLY) == -1){
+	if((read_fifo = open(client_fifo,O_RDONLY)) == -1){
 		perror("fifo leitura");
 		return 1;
 	}
@@ -213,16 +213,14 @@ int main(int argc, char* argv[]){
     }    
 	
 	*/
-
-	printf("Hello\n");
 	send_status();
     strcpy(client_fifo,"./tmp/w_");
-	strcpy(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	unlink(client_fifo);
 
 	strcpy(client_fifo,"./tmp/r_");
-	strcpy(client_fifo+9,pid_name);
+	strcpy(client_fifo+8,pid_name);
 
 	unlink(client_fifo);
 

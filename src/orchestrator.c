@@ -152,12 +152,12 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	pid_t pid;
+	int pid;
 	int i;
 	int status;
 		
 		// Ler fifo para onde o cliente escreve
-		if(read(server_fd,&pid,sizeof(pid_t))==-1){
+		if(read(server_fd,&pid,sizeof(int))==-1){
 			perror("Read client pid");
 			return 1;
 		}
