@@ -54,7 +54,7 @@ static volatile int is_open = 1;
 char* output_path;
 char buff[BUFFER_SIZE];
 
-pid_t pids[50];
+pid_t pids[256];
 
 // ./orchestrator {output_folder} {parallel-tasks} {sched-policy}
 
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]){
 			perror("Read client pid");
 			return 1;
 		}
-		printf("Pid cliente :%d \n",pid);
+
 		i = 0;
 		while(pids[i]!=0){ 
 			i++;
@@ -172,8 +172,8 @@ int main(int argc, char* argv[]){
 			// filho que vai tratar da informacao providenciada pelo cliente
 			
 			// Eliminar fifos
-			char client_fifo[26];
-			char pid_name[19];
+			char client_fifo[256];
+			char pid_name[256];
 			itoa(pid,pid_name);
 			strcpy(client_fifo,"./tmp/w_");
 			strcat(client_fifo,pid_name);
