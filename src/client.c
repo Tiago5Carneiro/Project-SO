@@ -5,6 +5,7 @@
 #include <sys/stat.h> 	/* mkfifo */
 #include <stdbool.h>
 #include <string.h> 
+#include <stdlib.h>
 
 #define BUFF_SIZE 1024
 char buff[BUFF_SIZE] ;
@@ -56,9 +57,9 @@ void handle_signalterm(){
 	printf("Task done...\n");
 	
 	// Eliminar fifos
-	char client_fifo[26];
+	char client_fifo[256];
 	int pid = getpid();
-	char pid_name[19];
+	char pid_name[256];
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
@@ -80,9 +81,9 @@ void handle_signalint(){
 	printf("\n\nUNEXPECTED TERMINATION \n\n");
 
 	// Eliminar fifos
-	char client_fifo[26];
+	char client_fifo[256];
 	int pid = getpid();
-	char pid_name[19];
+	char pid_name[256];
 	itoa(pid,pid_name);
 
 	strcpy(client_fifo,"./tmp/w_");
@@ -158,7 +159,7 @@ int main(int argc, char* argv[]){
 	char client_fifo2[256];
 	// Colucar o pid numa string para depois usar para criar os seus fifos respetivos
 	int pid = getpid();
-	char pid_name[19];
+	char pid_name[256];
 	itoa(pid,pid_name);
 
 
@@ -213,35 +214,34 @@ int main(int argc, char* argv[]){
     	// p - pipeline de comandos
     	char mode = argv[3];
 
-    	//switch para o mode selecionado
+    	//verificacão se é um dos modos predefinidos
         if(!(strcmp(mode, "-u") || strcmp(mode, "-p"))){    
 			perror("args");
 			return 1;
 		}
-		// Calcular o tamanho total necessário para a string
+
+		// calcular o tamanho total necessário para a string
 		int total_size = 0;
 		for(int i = 1; i < argc; i++) {
-    		total_size += strlen(argv[i]) + 1; // +1 para o espaço entre argumentos
+    		total_size += strlen(argv[i]) + 1;
 		}
 
-		// Alocar memória para a string
+		// criar a string com os argumentos do execute até ao fim do argv
 		char *args_string = malloc(total_size);
 		if(args_string == NULL) {
     		perror("malloc");
     		return 1;
 		}
 
-		// Inicializar a string com o primeiro argumento
+		// inicializar a string com o execute
 		strcpy(args_string, argv[1]);
 
-		// Concatenar os argumentos restantes
+		// concatenar os argumentos restantes até ao fim
 		for(int i = 2; i < argc; i++) {
     		strcat(args_string, " ");
     		strcat(args_string, argv[i]);
 		}
 
-		// Agora, args_string contém todos os argumentos a partir de argv[1] como uma única string.
-		// Você pode enviá-la como quiser.
 		execute(args_string);
     }
     else{
