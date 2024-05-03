@@ -174,10 +174,13 @@ int main(int argc, char* argv[]){
 			// Eliminar fifos
 			char client_fifo[256];
 			char pid_name[256];
+			
+			// Transformar pid do cliente numa string
 			itoa(pid,pid_name);
 			strcpy(client_fifo,"./tmp/w_");
 			strcat(client_fifo,pid_name);
-			printf("Pid cliente :%s\n",pid_name);
+
+			printf("Pid cliente : %s\n",pid_name);
 
 			int read_client_fifo = open(client_fifo,O_RDONLY);
 			if(read_client_fifo == -1){
@@ -194,8 +197,12 @@ int main(int argc, char* argv[]){
 				return 1;
 			}
 
-			read(read_client_fifo,buff,BUFFER_SIZE);
-			
+			int size = read(read_client_fifo,buff,BUFFER_SIZE);
+			if (size == -1){
+				perror("Read buff");
+				return 1;
+			}
+			buff[size] = '\0';
 			printf("Mensagem : %s\n",buff);
 
 			// filho informa cliente que o seu pedido ja foi concluido
@@ -206,7 +213,7 @@ int main(int argc, char* argv[]){
 
 			// filho termina 
 			_exit(0);
-
+			
 		}
 		wait(&status);
 		is_open = 0;

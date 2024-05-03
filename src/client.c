@@ -127,20 +127,20 @@ int send_status(){
 } 
 
 // Funcao para escrever o execute para o fifo do cliente 
-int execute(char* command){
+int execute(char* command,int size){
 
 	printf("Executing ...\n");
 	
 	// Escrever no fifo para o servidor receber
-	if(write(write_fifo,command,sizeof(command)) == -1){
-		perror("execute");
+	if(write(write_fifo,command,size) == -1){
+		perror("execute write command");
 		return 1;
 	}
 
 	// Esperar pela resposta do servidor que vai ser mandada pelo seu fifo
-	int ex = read(server_fifo,buff,BUFF_SIZE);
+	int ex = read(read_fifo,buff,BUFF_SIZE);
 	if(ex == -1){
-		perror("execute");
+		perror("execute read command");
 		return 1;
 	}
 
@@ -243,7 +243,7 @@ int main(int argc, char* argv[]){
     		strcat(args_string, argv[i]);
 		}
 
-		execute(args_string);
+		execute(args_string,total_size);
     }
     else{
     	// Status
