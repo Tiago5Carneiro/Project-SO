@@ -8,46 +8,6 @@
 #include <sys/types.h>
 #include <string.h>
 
-/*
-
-	Ideas on how to do things : 
-
-	Cliente vai mandar a string toda que quer executar 
-
-	Server verifica se recebeu status ou exectute
-
-		Se status verificar logo como esta a queue e mandar a informacao para o cliente, depois mandar 
-		a informacao da queue que contem os commandos que estao a ser executados agora 
-			Uma ideia seria mandar strings individuais por processo em espera e por processo a ser executado 
-			Parar de mandar atravez de um character especifico e assim que o cliente receber este character 
-			parar de ler do fifo
-
-		Se execute for recebido 
-			verificar se foi usado p ou u
-				se u :
-					fazer um filho que vai usar o execvp para executar o commando dado 
-					direcionar o stdout para um ficheiro no path dado como argumento ao servidor 
-				se p :
-					usar o strstep para encontrar o caracter '|' e por cada vez que encontrar ou quando encontrar \0, 
-					criar filho para executar cada um destes commandos 
-					cada filho direciona o stdout para um ficheiro que ira para o path 
-
-		Ideia de como gerir a queue 
-			Processo pai do programa vai ser o processo que esta sempre a ler do fifo 
-			Este cria um filho logo no inicio, que vai ser quem gere a queue 
-			Este filho vai ficar a ler dum pipe vindo do pai ate receber informacao para criar um processo para a queue 
-			Quando ler um novo pedido vai verificar na queue de processos a serem processados neste momento se pode ser 
-			ja iniciado este pedido 
-			Se sim cria logo um filho para comecar a tratar desse processo e adiciona o processo a queue dos que estao 
-			a ser executados
-			Otherwise vai para a queue dos de espera
-			
-		Como fazer ir da queue de espera para ser processado
-			Quando o filho terminar de processar entao de alguma maneira um processo deveria verificar se o proximo pro
-			cesso da queue ja pode ser feito 
-
-*/
-
 #define BUFFER_SIZE 1024
 
 static volatile int is_open = 1;
@@ -132,7 +92,7 @@ int main(int argc, char* argv[]){
 
 	printf("Starting server...\nPid : %d\n",getpid());
 
-	// Path para onde os ficheiros finais vao
+	// Path para onde os ficheiros finais vao	
 	output_path = argv[1];
 
 	// Make fifos
@@ -208,29 +168,90 @@ int main(int argc, char* argv[]){
 			// verificar se o cliente quer status ou executar um comando
 			if(buff[0] == 's'){
 				// cliente quer status
-			
+
 			}else{
 				//cliente quer executar um comando
 				if(fork()==0){
 					// filho que vai executar o comando
 					// verificar se é u ou p
-					char* distinct = strsep(&buff," ");
-					char* distinct = stresep(&buff," ");
-					if(command[0] == 'u'){
+					char* distinct;
+					int j = 0;
+					// passar o exec
+					while(buff[j] != ' '){
+						j++;
+					}
+					j++;
+					// passar o tempo
+					while(buff[j] != ' '){
+						j++;
+					}
+					j++;
+					distinct = &buff[j];
+
+					if(distinct[1] == 'u'){
 						// executar comando unico
-						char* args[256];
-						int i = 0;
-						while((args[i] = strsep(&buff," "))!=NULL){
-							i++;
+						char *args[256];
+						int i = 1;
+						int j=0;
+						int z=0;
+						//passar o -u
+						while(distinct[j] != ' '){
+							j++;
 						}
-						args[i] = NULL;
-						execvp(args[0],args);
-					}else if(command[0] == 'p'){
-						//executar comando pipe
+						j++;
+						z = j;
+						// ver quantidade de characteres ate o proximo espaco
+						while(distinct[j] != ' '){
+							j++;
+						}
+						j++;
+
+						// colocar o nome do commando no arg[0]
+						args[0] = malloc(sizeof(char)*(j-z));
+						strncpy(args[0],&distinct[z],j-z);
+
+						z=j;
+						// funcao para colocar os argumentos do commando nos respectivos args
+						while(j<strlen(distinct)+1){
+							if (distinct[j]==' ' || distinct[j]=='\0') {
+								args[i] = malloc(sizeof(char)*(j-z));
+								strncpy(args[i],&distinct[z],j-z);
+								z = j + 1;
+								i++;
+							 if (distinct[j]=='\0') {
+								args[i] = NULL;
+								}
+							}
+
+							j++;
+
+						}
+						printf("Command : %s\n" , args[0]);
+
+						// output file
+						char* file = malloc(sizeof(char)*sizeof(output_path)+sizeof(char)*sizeof(pid_name)+1);
+						strcpy(file,output_path);
+						strcat(file,"/");
+						strcat(file,pid_name);
+						int fd = open(file,O_WRONLY | O_CREAT | O_TRUNC,0666);
+						for (int x = 1;x<4 && args[x] != NULL;x++)printf("command: %s ", args[x]);
+						printf("\n");
+
+						// redirecionar para o file
+						dup2(fd,1);
+
+						// exec commando
 						
+						execvp(args[0],args);
+						perror("execvp");
+						_exit(1);
+					}else if(distinct[1] == 'p'){
+						//executar comando pipe
+
 					}
 				}else{
-
+					// pai que vai esperar pelo filho que executa o comando
+					wait(&status);
 				}
 			}
 
