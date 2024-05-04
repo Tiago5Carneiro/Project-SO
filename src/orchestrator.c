@@ -205,6 +205,35 @@ int main(int argc, char* argv[]){
 			buff[size] = '\0';
 			printf("Mensagem : %s\n",buff);
 
+			// verificar se o cliente quer status ou executar um comando
+			if(buff[0] == 's'){
+				// cliente quer status
+			
+			}else{
+				//cliente quer executar um comando
+				if(fork()==0){
+					// filho que vai executar o comando
+					// verificar se é u ou p
+					char* distinct = strsep(&buff," ");
+					char* distinct = stresep(&buff," ");
+					if(command[0] == 'u'){
+						// executar comando unico
+						char* args[256];
+						int i = 0;
+						while((args[i] = strsep(&buff," "))!=NULL){
+							i++;
+						}
+						args[i] = NULL;
+						execvp(args[0],args);
+					}else if(command[0] == 'p'){
+						//executar comando pipe
+						
+					}
+				}else{
+
+				}
+			}
+
 			// filho informa cliente que o seu pedido ja foi concluido
 			write(write_client_fifo,"Done",sizeof(char)*4);
 

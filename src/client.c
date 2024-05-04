@@ -203,7 +203,7 @@ int main(int argc, char* argv[]){
 	bool type=0;
 
 	
-	// Verificar se e um execute ou um status
+	// verificar se é um execute ou um status
 	(strcmp(argv[1],"execute")==0) ? type = 1 : ((strcmp(argv[1],"status")==0) ? type = 0 : perror("Arguments"));
 
 	if (type) {
