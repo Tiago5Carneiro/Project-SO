@@ -236,15 +236,19 @@ int main(int argc, char* argv[]){
 
 		// inicializar a string com o execute
 		strcpy(args_string, argv[1]);
-
 		// concatenar os argumentos restantes até ao fim
+
 		for(int i = 2; i < argc; i++) {
-    		strcat(args_string, " ");
+			strcat(args_string, " ");	
     		strcat(args_string, argv[i]);
 		}
-
+		printf("String : %s\n", args_string);
+			
+		//for(int i=0;i<BUFF_SIZE;i++)if(args_string[i]=='\0') args_string[i] = ' ';
+		//args_string[sizeof(args_string)-1] = '\0';
 		execute(args_string,total_size);
     }
+
     else{
     	// Status
     	send_status();
