@@ -52,11 +52,8 @@ typedef struct linkedListProcess{
     pid_t pid_client;
     pid_t pid_child; //Pid do filho que vai executar a task
     int task_number;
-    char *input_file;
     char *output_file;
-    int commandsCount;
     int priority;
-    char **commands;
     struct linkedListProcess *next;
 } *LinkedListProcess;
 
