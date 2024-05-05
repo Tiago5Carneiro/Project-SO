@@ -7,6 +7,7 @@
 #include <sys/wait.h> 	/* wait */
 #include <sys/types.h>
 #include <string.h>
+#include "../include/auxStructs.h"
 
 #define BUFFER_SIZE 1024
 
@@ -14,8 +15,8 @@ static volatile int is_open = 1;
 char* output_path;
 char buff[BUFFER_SIZE];
 
-Command * processing;
-Command * pending;
+//Command processing;
+//Command pending;
 
 pid_t pids[256];
 
@@ -85,11 +86,24 @@ void handle_signalint(){
 }
 
 // adicionar a queue 
+int addQueue(char * task, int pid_client, char* pid_name){
+	// output file
+	LinkedListProcess p = parseProcess(buff,pid_client);
+	p->output_file = malloc(strlen(output_path)+strlen(pid_name)+1);
+	strcpy(p->output_file,output_path);
+	strcat(p->output_file,pid_name);
+	printf("Output file : %s\n",p->output_file);
+	//printProcessInfo(1,p);
+	//write(1,"OLA",4);
+	//for(int i = 0;hello[i] != NULL;i++)printf("args : %s",-args[i]);
+	freeProcess(p);
+	//int fd = open(p->output_file,O_WRONLY | O_CREAT | O_TRUNC,0666);
+	//dup2(1,fd);
 
-int addQueue(char * task){
-
+	/*
 	// filho que vai executar o comando
 	// verificar se é u ou p
+	printf("OLA/n");
 	char* distinct;
 	int j = 0;
 	// passar o exec
@@ -105,62 +119,57 @@ int addQueue(char * task){
 	distinct = &buff[j];
 
 	if(distinct[1] == 'u'){
-						// executar comando unico
-						char *args[256];
-						int i = 1;
-						int j=0;
-						int z=0;
-						//passar o -u
-						while(distinct[j] != ' '){
-							j++;
-						}
-						j++;
-						z = j;
-						// ver quantidade de characteres ate o proximo espaco
-						while(distinct[j] != ' '){
-							j++;
-						}
-						j++;
-
-						// colocar o nome do commando no arg[0]
-						args[0] = malloc(sizeof(char)*(j-z));
-						strncpy(args[0],&distinct[z],j-z);
-
-						z=j;
-						// funcao para colocar os argumentos do commando nos respectivos args
-						while(j<strlen(distinct)+1){
-							if (distinct[j]==' ' || distinct[j]=='\0') {
-								args[i] = malloc(sizeof(char)*(j-z));
-								strncpy(args[i],&distinct[z],j-z);
-								z = j + 1;
-								//printf("arg: %s ", args[i]);
-								i++;
-							 if (distinct[j]=='\0') {
-								args[i] = NULL;
-								}
-							}
-
-							j++;
-
-						}
-						printf("Command : %s\n" , args[0]);
-						for (int x = 0;args[x] == NULL;x++)printf("arg: %s ", args[x]);
-
-
-
+		// executar comando unico
+		char *args[256];
+		int i = 1;
+		int j=0;
+		int z=0;
+		//passar o -u
+		while(distinct[j] != ' '){
+			j++;
+		}
+		j++;
+		z = j;
+		// ver quantidade de characteres ate o proximo espaco
+		while(distinct[j] != ' '){
+			j++;
+		}
+		j++;
+		// colocar o nome do commando no arg[0]
+		args[0] = malloc(sizeof(char)*(j-z));
+		strncpy(args[0],&distinct[z],j-z);
+		z=j;
+		// funcao para colocar os argumentos do commando nos respectivos args
+		while(j<strlen(distinct)+1){
+			if (distinct[j]==' ' || distinct[j]=='\0') {
+				args[i] = malloc(sizeof(char)*(j-z));
+				strncpy(args[i],&distinct[z],j-z);
+				z = j + 1;
+				//printf("arg: %s ", args[i]);
+				i++;
+			 if (distinct[j]=='\0') {
+				args[i] = NULL;
+				}
+		
+			j++;
+		}
+		printf("Command : %s\n" , args[0]);
+		//for (int x = 0;args[x] == NULL;x++)printf("arg: %s ", args[x]);
+		printf("%s\n",args);
+		execvp(args[0],args);
+		perror("execvp");
+		_exit(1);
+	}
+	}else if(distinct[1] == 'p'){
+		//executar comando pipe
+	}else{
+		// status
+	}
+	*/
+	return 0;
 }
 
 // passar para os processing
-
-
-
-
-
-
-
-
-
-
 
 
 int main(int argc, char* argv[]){
@@ -193,21 +202,16 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	int pid;
+	int pid_client;
 	int i;
 	int status;
 		
 		// Ler fifo para onde o cliente escreve
-		if(read(server_fd,&pid,sizeof(int))==-1){
+		if(read(server_fd,&pid_client,sizeof(int))==-1){
 			perror("Read client pid");
 			return 1;
 		}
 
-		i = 0;
-		while(pids[i]!=0){ 
-			i++;
-		}
-		pids[i] = pid;
 		if(fork()==0){
 			
 			// filho que vai tratar da informacao providenciada pelo cliente
@@ -217,7 +221,7 @@ int main(int argc, char* argv[]){
 			char pid_name[256];
 			
 			// Transformar pid do cliente numa string
-			itoa(pid,pid_name);
+			itoa(pid_client,pid_name);
 			strcpy(client_fifo,"./tmp/w_");
 			strcat(client_fifo,pid_name);
 
@@ -253,31 +257,22 @@ int main(int argc, char* argv[]){
 			}else{
 				//cliente quer executar um comando
 				if(fork()==0){
-											// output file
-						char* file = malloc(strlen(output_path)+strlen(pid_name)+1);
-						strcpy(file,output_path);
-						strcat(file,"/");
-						strcat(file,pid_name);
-						int fd = open(file,O_WRONLY | O_CREAT | O_TRUNC,0666);
-
 						
-						// redirecionar para o file
-						//dup2(fd,1);
-
-						// exec commando
-						//execvp(args[0],args);
-						perror("execvp");
-						_exit(1);
-					}else if(distinct[1] == 'p'){
-						//executar comando pipe
-
-					}
+						/*
+						if(fd == -1){
+							perror("open file");
+							_exit(1);
+						}
+						dup2(fd,1);
+						executar comando
+						*/
+						addQueue(buff,pid_client,pid_name);
+						_exit(0);
 				}else{
 					// pai que vai esperar pelo filho que executa o comando
 					wait(&status);
 				}
 			}
-
 			// filho informa cliente que o seu pedido ja foi concluido
 			write(write_client_fifo,"Done",sizeof(char)*4);
 
@@ -287,10 +282,14 @@ int main(int argc, char* argv[]){
 			// filho termina 
 			_exit(0);
 			
-		}
+		}else{
 		wait(&status);
 		is_open = 0;
-	
+		}
+	//}else{
+	//// pai que vai esperar pelo filho que trata da informacao do cliente
+	//wait(&status);
+
 	// Fechar descritor fifos
 	close(server_fd);
 		

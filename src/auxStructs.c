@@ -1,48 +1,11 @@
-#include "server/auxStructs.h"
-
-/** Command **/
-
-Command newCommand(char *line){
-    Command c = (Command) malloc(sizeof(struct command));
-    c->type     = strdup(strsep(&line," "));
-    sscanf(strsep(&line," "), "%d", &c->max);
-    c->running = 0;
-    return c;
-}
-
-void incRunningCommand(Command c){
-    if(c == NULL) return;
-    c->running++;
-}
-
-void decRunningCommand(Command c){
-    if(c == NULL) return;
-    c->running--;
-}
-
-int commandAvailable (Command c){
-    if(c->running < c->max) return 0;
-    else return -1;
-}
-
-void printCommand(int fildes, Command c){
-    char buffer[256];
-    sprintf(buffer,"command %s: %d/%d (running/max)\n",c->type, c->running, c->max);
-    write(fildes, buffer, strlen(buffer));
-}
-
-void freeCommand(Command c){
-    if(c != NULL){
-        free(c->type);
-        free(c);
-    }
-}
+#include "../include/auxStructs.h"
 
 /** Linked List of Commands **/
 
-LlCommand newLLC(Command c){
+LlCommand newLLC(char* c,char** args){
     LlCommand l = malloc(sizeof(struct llCommand));
     l->command = c;
+    l->args=args;
     l->next   = NULL;
     return l;
 }
@@ -52,23 +15,26 @@ void freeLLC(LlCommand list){
 
     while(tmp != NULL){
         tmp = tmp->next;
-        freeCommand(list->command);
+        free(list->command);
+        for(int i=0;list->args[i]!=NULL;i++)free(list->args[i]);
+        free(list->args);
         free(list);
         list = tmp;
     }
 }
 
-void appendsLLC(LlCommand llc, Command c){
-    LlCommand l = newLLC(c);
+void appendsLLC(LlCommand llc, char* c, char** args){
+    LlCommand l = newLLC(c,args);
     while (llc->next != NULL)
         llc = llc->next;
     llc->next = l;
 }
 
-Command getCommand(LlCommand llc, char *type){
+char* getCommand(LlCommand llc,int n ){
     //Percorre a linked list, à procura do command
     LlCommand tmp;
-    for(tmp = llc; tmp != NULL && strcmp(tmp->command->type, type) != 0; tmp = tmp->next);
+    int i = 0;
+    for(tmp = llc; tmp != NULL && i<n; tmp = tmp->next) i++;
 
     //Se tmp != NULL então encontrou o comando
     if(tmp != NULL) return tmp->command;
@@ -78,54 +44,106 @@ Command getCommand(LlCommand llc, char *type){
 
 /** Lista ligada com a informacao dos processos **/
 
-LinkedListProcess parseProcess(char *str, int task_number){
+LinkedListProcess parseProcess(char *str, int pid_client){
     LinkedListProcess p = (LinkedListProcess) malloc(sizeof(struct linkedListProcess));
     p->pid_child    = -1;
-    p->task_number  = task_number;
+    p->task_number  = 0;
     p->commandsCount = 0;
     p->next         = NULL;
 
-    //ignora "pid:"
-    strsep(&str," ");
 
-    //Gets pid from client
-    p->pid_client = atoi(strsep(&str," "));
 
-    //ignora "transform"
-    strsep(&str,"\n");
+    if (str[0]=='s'){
 
-    //gets input & output files
-    p->input_file   = strdup(strsep(&str,"\n"));
-    p->output_file  = strdup(strsep(&str,"\n"));
-    p->priority  = atoi(strsep(&str,"\n"));
+    }else {
+        //ignora "execute"
+        strsep(&str," ");
 
-    //gets commands
-    int maxCommands = 1;
-    p->commands = (char **) malloc(maxCommands * sizeof(char *));
-    char *command;
+        //ignora time
+        strsep(&str," ");
 
-    while((command = strsep(&str,"\n")) != NULL){
-        //Caso de não haver espaço suficiente para os comandos
-        if(p->commandsCount == maxCommands){
-            maxCommands *= 2;
-            p->commands = realloc(p->commands, maxCommands * sizeof(char *));
+        if (str[1]=='u'){
+        
+            //ignora "-u"
+            strsep(&str," ");
+
+            //Gets pid from client
+            p->pid_client = pid_client;
+
+            //gets output files
+            p->output_file  = NULL;
+            p->priority  = 0;
+
+            //gets commands
+            int maxCommands = 1;
+            char *command;
+            char **args=malloc(sizeof(char*)*256);
+            int z=0,j=0,i=0;
+		    // ver quantidade de characteres ate o proximo espaco
+		    while(str[j] != ' '){
+			    j++;
+		    }
+		    j++;
+            // colocar o nome do commando no arg[0]
+		    args[0] = malloc(sizeof(char)*(j-z));
+		    strncpy(args[0],&str[z],j-z);
+		    z=j;
+		    // funcao para colocar os argumentos do commando nos respectivos args
+		    while(strsep(&str," ")){
+                printf("AAAAA");
+			    if (str[j]==' ' || str[j]=='\0') {
+			    	args[i] = malloc(sizeof(char)*(j-z));
+			    	strncpy(args[i],&str[z],j-z);
+			    	z = j + 1;
+			    	printf("arg: %s ", args[i]);
+			    	i++;
+		    	if (str[j]=='\0') {
+		    		args[i] = NULL;
+				    }
+			        j++;
+		        }
+                LlCommand llc = newLLC(args[0],args);
+                return p;
+            }
+        }else if (str[1]=='p'){
+            //ignora "-p"
+            strsep(&str," ");
+
+            //Gets pid from client
+            p->pid_client = pid_client;
+
+            //gets output files
+            p->output_file  = NULL;
+            p->priority  = 0;
+
+            //gets commands
+            int maxCommands = 1;
+            char *command;
+
+            while((command = strsep(&str,"|")) != NULL){
+                //Caso de não haver espaço suficiente para os comandos
+                if(p->commandsCount == maxCommands){
+                    maxCommands *= 2;
+                    p->commands = realloc(p->commands, maxCommands * sizeof(char *));
+                }
+
+                //Coloca o comando na estrutura
+                LlCommand tmp;
+                
+                p->commandsCount++;
+            }
+
+            return p;
+        
         }
-
-        //Coloca o comando na estrutura
-        p->commands[p->commandsCount] = strdup(command);
-        p->commandsCount++;
     }
-
-    return p;
+    return 0;
 }
 
 void freeProcess(LinkedListProcess process){
     if(process != NULL){
-        free(process->input_file);
         free(process->output_file);
-        for(int i = 0; i < process->commandsCount ; i++)
-            free(process->commands[i]);
-        free(process->commands);
+        freeLLC(process->commands);
         free(process);
     }
 }
@@ -149,16 +167,16 @@ void appendsProcess(LinkedListProcess l, LinkedListProcess p){
 void printProcessInfo(int fildes, LinkedListProcess process){
     char buffer[1024];
 
-    sprintf(buffer, "task #%d: process %s %s", process->task_number, process->input_file, process->output_file);
-
+    sprintf(buffer, "task #%d: process %s\0", process->task_number, process->output_file);
     for(int i = 0; i < process->commandsCount ; i++) {
         strcat(buffer, " ");
-        strcat(buffer,process->commands[i]);
+        strcat(buffer,process->commands->command);
     }
 
     strcat(buffer,"\n");
-
-    write(fildes, buffer, strlen(buffer));
+    if(write(fildes, buffer, strlen(buffer))==-1){
+        perror("write");
+    }
 }
 
 LinkedListProcess removeProcessByChildPid(LinkedListProcess *list, pid_t pid){
@@ -203,66 +221,4 @@ ssize_t readln(int fd, char* line, size_t size) {
 
     lseek(fd, line_length - bytes_read, SEEK_CUR);
     return line_length;
-}
-
-
-LlCommand read_commands_config_file(char *filepath){
-    LlCommand llc = NULL;
-
-    //Abertura do ficheiro com a config
-    int conf_fd  = open(filepath, O_RDONLY);
-
-    char *buffer = (char *) malloc(1024);
-
-    //Lê e processa uma linha do ficheiro config
-    while(readln(conf_fd, buffer, 1024) > 0){
-        if(llc != NULL)
-            appendsLLC(llc,newCommand(buffer));
-        else
-            llc = newLLC(newCommand(buffer));
-    }
-
-    close(conf_fd);
-    free(buffer);
-
-    return llc;
-}
-
-
-int isTaskRunnable (LlCommand llc, LinkedListProcess process){
-    char *commands[process->commandsCount];
-    int times[process->commandsCount]; //Número de vezes que é pedido para executar o comando
-
-
-    //Conta o número de vezes que cada comando é utilizado
-
-    int n = 0; //Número de posicoes já ocupadas nos arrays
-    for(int i = 0 ; i < process->commandsCount ; i++){
-        int j;
-        for(j = 0; j < n && strcmp(process->commands[i],commands[j]) != 0; j++);
-
-        //Encontrou em commands
-        if(j != n){
-            times[j]++;
-        }
-        else{
-            times[n]   = 1;
-            commands[n] = process->commands[i];
-            n++;
-        }
-    }
-
-    //Verifica se a task não é impossivel de executar, se pode começar a ser executada ou não.
-    int r = 1;
-    for(int i = 0; i < n ; i++){
-        Command c = getCommand(llc,commands[i]);
-
-        if(c== NULL || times[i] > c->max)
-            return -1;
-
-        if(times[i] > c->max - c->running)
-            r = 0;
-    }
-
-    return r;
 }
