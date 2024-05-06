@@ -21,7 +21,7 @@ typedef struct llCommand{
     struct llCommand *next;
 } *LlCommand;
 
-LlCommand newLLC(char* c,char** args);
+LlCommand newLLC();
 
 void freeLLC(LlCommand list);
 
@@ -44,7 +44,7 @@ typedef struct linkedListProcess{
 
 //LinkedListProcess newProcess(pid_t pid, int task_number, char *input_file, char *output_file, int commandsCount, char **commands);
 
-LinkedListProcess parseProcess(char *str, int pid_client);
+LinkedListProcess parseProcess(char *str, int pid_client, int outputsize);
 
 void freeProcess(LinkedListProcess process);
 

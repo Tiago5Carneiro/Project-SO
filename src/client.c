@@ -80,7 +80,6 @@ void handle_signalint(){
 
 	printf("\n\nUNEXPECTED TERMINATION \n\n");
 
-	// Eliminar fifos
 	char client_fifo[256];
 	int pid = getpid();
 	char pid_name[256];
@@ -154,18 +153,18 @@ int main(int argc, char* argv[]){
 	signal(SIGINT,handle_signalint);
 	signal(SIGTERM,handle_signalterm);
 
-	// String que vai conter o path e nome do fifo de escrita do cliente
 	char client_fifo[256];
 	char client_fifo2[256];
+
 	// Colucar o pid numa string para depois usar para criar os seus fifos respetivos
 	int pid = getpid();
 	char pid_name[256];
 	itoa(pid,pid_name);
 
-
 	strcpy(client_fifo,"./tmp/w_");
 	strcat(client_fifo,pid_name);
 
+	// Criar os fifos para o cliente
 	if(mkfifo(client_fifo,0666)==-1){
 		perror("Criacao fifo escrita");
 		return 1;
@@ -179,17 +178,19 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-	// Abertura dos fifos 
+	// Abrir o fifo do servidor para escrever o pid do cliente
 	if((server_fifo = open("./tmp/server_fifo", O_WRONLY)) == -1){
 		perror("server fifo");
 		return 1;
 	}
 
+	// Escrever o pid do cliente no fifo do servidor
 	if (write(server_fifo,&pid,sizeof(int))==-1){
 		perror("Write Pid Fifo");
 		return 1;
 	}
 
+	// Abrir os fifos do cliente para leitura e escrita
 	if((write_fifo = open(client_fifo,O_WRONLY)) == -1){
 		perror("fifo escrita");
 		return 1;
@@ -203,7 +204,7 @@ int main(int argc, char* argv[]){
 	bool type=0;
 
 	
-	// verificar se é um execute ou um status
+	// Verificar se o argumento é execute ou status
 	(strcmp(argv[1],"execute")==0) ? type = 1 : ((strcmp(argv[1],"status")==0) ? type = 0 : perror("Arguments"));
 
 	if (type) {
@@ -214,7 +215,7 @@ int main(int argc, char* argv[]){
     	// p - pipeline de comandos
     	char *mode = argv[3];
 
-    	//verificacão se é um dos modos predefinidos
+		// Verificar se o modo é valido
         if(!(strcmp(mode, "-u") || strcmp(mode, "-p"))){    
 			perror("args");
 			return 1;
@@ -226,34 +227,34 @@ int main(int argc, char* argv[]){
     		total_size += strlen(argv[i]) + 1;
 		}
 
-		// criar a string com os argumentos do execute até ao fim do argv
-		char *args_string; 
+		// criar a string com o tamanho necessário
+		char *args_string;
 		args_string = (char *) malloc(total_size);
 		if(args_string == NULL) {
     		perror("malloc");
     		return 1;
 		}
 
-		// inicializar a string com o execute
+		// copiar o primeiro argumento
 		strcpy(args_string, argv[1]);
-		// concatenar os argumentos restantes até ao fim
 
+		// concatenar os restantes argumentos
 		for(int i = 2; i < argc; i++) {
 			strcat(args_string, " ");	
     		strcat(args_string, argv[i]);
 		}
 		printf("String : %s\n", args_string);
-			
+
 		//for(int i=0;i<BUFF_SIZE;i++)if(args_string[i]=='\0') args_string[i] = ' ';
 		//args_string[sizeof(args_string)-1] = '\0';
 		execute(args_string,total_size);
-    }
-
-    else{
-    	// Status
+	
+	}else{
+		// Status
     	send_status();
     }    
 
+	// Eliminar fifos
     strcpy(client_fifo,"./tmp/w_");
 	strcat(client_fifo,pid_name);
 
@@ -263,7 +264,6 @@ int main(int argc, char* argv[]){
 	strcat(client_fifo,pid_name);
 
 	unlink(client_fifo);
-
 
 	return 0;
 }
