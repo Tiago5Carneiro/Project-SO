@@ -257,7 +257,7 @@ int main(int argc, char* argv[]){
 			}else{
 				//cliente quer executar um comando
 				if(fork()==0){
-						
+					// filho que vai executar o comando
 						/*
 						if(fd == -1){
 							perror("open file");
@@ -274,14 +274,18 @@ int main(int argc, char* argv[]){
 				}
 			}
 			// filho informa cliente que o seu pedido ja foi concluido
-			write(write_client_fifo,"Done",sizeof(char)*4);
+			if(write(write_client_fifo,"Done",sizeof(char)*4)==-1){
+				perror("Write Done");
+				return 1;
+			}
 
+			// Fechar descritores fifos
 			close(write_client_fifo);
 			close(read_client_fifo);
 
 			// filho termina 
 			_exit(0);
-			
+
 		}else{
 		wait(&status);
 		is_open = 0;
