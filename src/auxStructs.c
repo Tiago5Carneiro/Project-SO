@@ -189,6 +189,33 @@ LinkedListProcess removeProcessesHead(LinkedListProcess *list){
     return tmp;
 }
 
+void P(struct semaphore s)
+{
+    if (s.value == 1) {
+        s.value = 0;
+    }
+    else {
+        s.q.push(P); 
+        sleep();
+    }
+}
+
+void V(semaphore s)
+{
+    if (s.q is empty) {
+        s.value = 1;
+    }
+    else {
+ 
+        // Get a process from the Waiting Queue
+        Process p = q.front();
+        // Remove the process from waiting 
+        q.pop();
+        wakeup(p);
+    }
+}
+
+
 /** Outros **/
 
 ssize_t readln(int fd, char* line, size_t size) {

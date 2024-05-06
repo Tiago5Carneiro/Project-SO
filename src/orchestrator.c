@@ -8,11 +8,12 @@
 #include <sys/types.h>
 #include <string.h>
 #include "../include/auxStructs.h"
+#include <semaphore.h>
+
 
 #define BUFFER_SIZE 1024
 
 static volatile int is_open = 1;
-static volatile int process_done = 1;
 static volatile int max_process = 0;
 
 char* output_path;
@@ -89,7 +90,6 @@ void handle_signalint(){
 }
 
 int process();
-int pending();
 
 // adicionar a queue 
 int addQueue(char * task, int pid_client, char* pid_name, int task_number){
@@ -98,11 +98,7 @@ int addQueue(char * task, int pid_client, char* pid_name, int task_number){
 	strcpy(p->output_file,output_path);
 	strcat(p->output_file,pid_name);
 	printf("Output file : %s\n",p->output_file);
-	LinkedListProcess tmp;
-	int i = 0;
-	for(tmp=processing;tpm!=NULL;tmp=tmp->next)i++;
-	//if (i<max_process)process(buff,pid_client,pid_name);
-	//else pending(buff,pid_client,pid_name)
+
 	printProcessInfo(1,p);
 
 	//int fd = open(p->output_file,O_WRONLY | O_CREAT | O_TRUNC,0666);
@@ -147,9 +143,31 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
+	// Criar semaforo para os pending
+
+
+
 	// filho que vai tratar de passar os pending para processing
 	if(fork()==0){
-		
+
+	}else{
+		// pai
+		while(is_open){
+			//usar mutex nos pending
+			if (pending!=NULL){
+				//unmutex nos pending
+				
+				LinkedListProcess tmp;
+				int i = 0;
+				//mutex no processing
+				for(tmp=processing;tmp!=NULL;tmp=tmp->next)i++;
+				//unmutex nos processing
+				if (i<max_process);// fazer a cabeca dos pending ir para os processing
+				//else 
+			}else{
+				
+			}
+		}
 	}
 	int pid_client;
 	int status;
@@ -200,7 +218,7 @@ int main(int argc, char* argv[]){
 				
 				addQueue(buff,pid_client,pid_name,process_id);
 				// Enviar mensagem ao cliente a dizer que terminou
-				if(write(write_client_fifo,"Task recieved",13)==-1){
+				if(write(write_client_fifo,"Task received",13)==-1){
 					perror("Write Done");
 					return 1;
 				}
@@ -212,11 +230,9 @@ int main(int argc, char* argv[]){
 							// filho termina
 				}
 
-			}
-			_exit(0);
-		}else {
+			}else {
 			close(pip[0]);
-		}
+			}
 
 	while(is_open){
 		// Ler fifo para onde o cliente escreve
@@ -225,8 +241,6 @@ int main(int argc, char* argv[]){
 			return 1;
 		}
 		write(pip[1],&pid_client,sizeof(int));
-
-		
 	}
 
 	// Fechar descritor fifos
