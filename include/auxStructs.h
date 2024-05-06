@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include "signal.h"
 #include "sys/wait.h"
+#include <sys/queue.h>
 
 #define MESSAGE_SIZE 4096
 
@@ -57,6 +58,15 @@ LinkedListProcess removeProcessesHead(LinkedListProcess *list);
 void printProcessInfo(int fildes, LinkedListProcess process);
 
 LinkedListProcess removeProcessByChildPid(LinkedListProcess *list, pid_t pid);
+
+struct semaphore{
+    Queue<process> q;
+    int value;
+};
+
+void P(struct semaphore s);
+
+void V(semaphore s);
 
 /** Outras **/
 
