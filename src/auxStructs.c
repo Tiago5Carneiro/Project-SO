@@ -44,10 +44,10 @@ char* getCommand(LlCommand llc,int n ){
 
 /** Lista ligada com a informacao dos processos **/
 
-LinkedListProcess parseProcess(char *str, int pid_client,int outputsize){
+LinkedListProcess parseProcess(char *str, int pid_client,int outputsize,int task_number){
     LinkedListProcess p = (LinkedListProcess) malloc(sizeof(struct linkedListProcess));
     p->pid_child    = -1;
-    p->task_number  = 0;
+    p->task_number  = task_number;
     p->commandsCount = 0;
     p->next         = NULL;
     LlCommand llc = newLLC();

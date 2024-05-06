@@ -44,7 +44,7 @@ typedef struct linkedListProcess{
 
 //LinkedListProcess newProcess(pid_t pid, int task_number, char *input_file, char *output_file, int commandsCount, char **commands);
 
-LinkedListProcess parseProcess(char *str, int pid_client, int outputsize);
+LinkedListProcess parseProcess(char *str, int pid_client, int outputsize, int task_number);
 
 void freeProcess(LinkedListProcess process);
 

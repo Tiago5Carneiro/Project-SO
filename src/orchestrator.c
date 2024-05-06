@@ -12,13 +12,16 @@
 #define BUFFER_SIZE 1024
 
 static volatile int is_open = 1;
+static volatile int process_done = 1;
+static volatile int max_process = 0;
+
 char* output_path;
 char buff[BUFFER_SIZE];
 
-//Command processing;
-//Command pending;
+LinkedListProcess processing;
+LinkedListProcess pending;
+LinkedListProcess done;
 
-pid_t pids[256];
 
 // ./orchestrator {output_folder} {parallel-tasks} {sched-policy}
 
@@ -85,13 +88,21 @@ void handle_signalint(){
 	kill(getpid(),SIGINT);
 }
 
+int process();
+int pending();
+
 // adicionar a queue 
-int addQueue(char * task, int pid_client, char* pid_name){
+int addQueue(char * task, int pid_client, char* pid_name, int task_number){
 	// output file
-	LinkedListProcess p = parseProcess(buff,pid_client,strlen(output_path)+strlen(pid_name));
+	LinkedListProcess p = parseProcess(buff,pid_client,strlen(output_path)+strlen(pid_name),task_number);
 	strcpy(p->output_file,output_path);
 	strcat(p->output_file,pid_name);
 	printf("Output file : %s\n",p->output_file);
+	LinkedListProcess tmp;
+	int i = 0;
+	for(tmp=processing;tpm!=NULL;tmp=tmp->next)i++;
+	//if (i<max_process)process(buff,pid_client,pid_name);
+	//else pending(buff,pid_client,pid_name)
 	printProcessInfo(1,p);
 
 	//int fd = open(p->output_file,O_WRONLY | O_CREAT | O_TRUNC,0666);
@@ -117,6 +128,7 @@ int main(int argc, char* argv[]){
 
 	// Guardar o caminho para a pasta onde vao ser guardados os outputs
 	output_path = argv[1];
+	max_process = atoi(argv[2]);
 
 	// Criar fifo para o servidor
 	if(mkfifo("./tmp/server_fifo",0666)==-1){
@@ -135,102 +147,87 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
+	// filho que vai tratar de passar os pending para processing
+	if(fork()==0){
+		
+	}
 	int pid_client;
 	int status;
-		
+	int pip[2];
+	pipe(pip);
+	// Criar um filho para tratar da queue pending
+		if(fork()==0){
+			int process_id;
+			// fechar escrita pipe
+			close(pip[1]);
+			while(is_open){
+				read(pip[0],&pid_client,sizeof(int));
+			
+				process_id++;
+				char client_fifo[256];
+				char pid_name[256];
+							
+				// Transformar pid do cliente numa string
+				itoa(pid_client,pid_name);
+				strcpy(client_fifo,"./tmp/w_");
+				strcat(client_fifo,pid_name);
+				
+				printf("Pid cliente : %s\n",pid_name);
+				
+				// Criar fifos para o cliente
+				int read_client_fifo = open(client_fifo,O_RDONLY);
+				if(read_client_fifo == -1){
+					perror("fifo de leitura");
+					return 1;
+				}
+				
+				strcpy(client_fifo,"./tmp/r_");
+				strcat(client_fifo,pid_name);
+				int write_client_fifo = open(client_fifo,O_WRONLY);
+				if(write_client_fifo == -1){
+					perror("fifo de escrita");
+					return 1;
+				}
+				
+				// Ler mensagem do cliente
+				int size = read(read_client_fifo,buff,BUFFER_SIZE);
+				if (size == -1){
+					perror("Read buff");
+					return 1;
+				}
+				buff[size] = '\0';
+				printf("Mensagem : %s\n",buff);
+				
+				addQueue(buff,pid_client,pid_name,process_id);
+				// Enviar mensagem ao cliente a dizer que terminou
+				if(write(write_client_fifo,"Task recieved",13)==-1){
+					perror("Write Done");
+					return 1;
+				}
+				
+				// Fechar descritores fifos
+				close(write_client_fifo);
+				close(read_client_fifo);
+			
+							// filho termina
+				}
+
+			}
+			_exit(0);
+		}else {
+			close(pip[0]);
+		}
+
+	while(is_open){
 		// Ler fifo para onde o cliente escreve
 		if(read(server_fd,&pid_client,sizeof(int))==-1){
 			perror("Read client pid");
 			return 1;
 		}
+		write(pip[1],&pid_client,sizeof(int));
 
-		// Criar um filho para tratar da informacao do cliente
-		if(fork()==0){
-			
-			// Filho que vai tratar da informacao do cliente
-			char client_fifo[256];
-			char pid_name[256];
-			
-			// Transformar pid do cliente numa string
-			itoa(pid_client,pid_name);
-			strcpy(client_fifo,"./tmp/w_");
-			strcat(client_fifo,pid_name);
-
-			printf("Pid cliente : %s\n",pid_name);
-
-			// Criar fifos para o cliente
-			int read_client_fifo = open(client_fifo,O_RDONLY);
-			if(read_client_fifo == -1){
-				perror("fifo de leitura");
-				return 1;
-			}
-
-			strcpy(client_fifo,"./tmp/r_");
-			strcat(client_fifo,pid_name);
-
-			int write_client_fifo = open(client_fifo,O_WRONLY);
-			if(write_client_fifo == -1){
-				perror("fifo de escrita");
-				return 1;
-			}
-
-			// Ler mensagem do cliente
-			int size = read(read_client_fifo,buff,BUFFER_SIZE);
-			if (size == -1){
-				perror("Read buff");
-				return 1;
-			}
-			buff[size] = '\0';
-			printf("Mensagem : %s\n",buff);
-
-			// Verificar se o cliente quer status ou executar um comando
-			if(buff[0] == 's'){
-				//cliente quer status
-				//enviar status
-				if(write(write_client_fifo,"Status",sizeof(char)*6)==-1){
-					perror("Write Status");
-					return 1;
-				}
-
-			}else{
-				//cliente quer executar um comando
-				if(fork()==0){
-					// Filho que vai executar o comando
-						/*
-						if(fd == -1){
-							perror("open file");
-							_exit(1);
-						}
-						dup2(fd,1);
-						executar comando
-						*/
-						addQueue(buff,pid_client,pid_name);
-						_exit(0);
-				}else{
-					// pai que vai esperar pelo filho que executa o comando
-					wait(&status);
-				}
-			}
-			// Enviar mensagem ao cliente a dizer que terminou
-			if(write(write_client_fifo,"Done",sizeof(char)*4)==-1){
-				perror("Write Done");
-				return 1;
-			}
-
-			// Fechar descritores fifos
-			close(write_client_fifo);
-			close(read_client_fifo);
-
-			// filho termina
-			_exit(0);
-		}else{
-		// pai que vai esperar pelo filho que trata da informacao do cliente
-		wait(&status);
-		is_open = 0;
-		}
-	//}else{
-	//// pai que vai esperar pelo filho que trata da informacao do cliente
-	//wait(&status);
+		
+	}
 
 	// Fechar descritor fifos
 	close(server_fd);
