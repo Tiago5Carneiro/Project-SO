@@ -2,10 +2,10 @@
 
 /** Linked List of Commands **/
 
-LlCommand newLLC(char* c,char** args){
+LlCommand newLLC(){
     LlCommand l = malloc(sizeof(struct llCommand));
-    l->command = c;
-    l->args=args;
+    l->command = NULL;
+    l->args= NULL;
     l->next   = NULL;
     return l;
 }
@@ -44,14 +44,14 @@ char* getCommand(LlCommand llc,int n ){
 
 /** Lista ligada com a informacao dos processos **/
 
-LinkedListProcess parseProcess(char *str, int pid_client){
+LinkedListProcess parseProcess(char *str, int pid_client,int outputsize){
     LinkedListProcess p = (LinkedListProcess) malloc(sizeof(struct linkedListProcess));
     p->pid_child    = -1;
     p->task_number  = 0;
     p->commandsCount = 0;
     p->next         = NULL;
-
-
+    LlCommand llc = newLLC();
+    p->commands = llc;
 
     if (str[0]=='s'){
 
@@ -61,7 +61,6 @@ LinkedListProcess parseProcess(char *str, int pid_client){
 
         //ignora time
         strsep(&str," ");
-
         if (str[1]=='u'){
         
             //ignora "-u"
@@ -71,73 +70,122 @@ LinkedListProcess parseProcess(char *str, int pid_client){
             p->pid_client = pid_client;
 
             //gets output files
-            p->output_file  = NULL;
+            p->output_file  = malloc(sizeof(char)*outputsize);
             p->priority  = 0;
+            
+            p->commands->args=malloc(sizeof(char*)*256);
 
-            //gets commands
-            int maxCommands = 1;
-            char *command;
-            char **args=malloc(sizeof(char*)*256);
-            int z=0,j=0,i=0;
+            int z=0,j=1,i=1;
 		    // ver quantidade de characteres ate o proximo espaco
 		    while(str[j] != ' '){
 			    j++;
 		    }
 		    j++;
             // colocar o nome do commando no arg[0]
-		    args[0] = malloc(sizeof(char)*(j-z));
-		    strncpy(args[0],&str[z],j-z);
+                                write(1,"hello\n",6);
+
+		    p->commands->args[0] = malloc(sizeof(char)*(j-z));
+
+		    strncpy(p->commands->args[0],&str[z],j-z-1);
+            p->commandsCount++;
+            printf("arg: %s ", p->commands->args[i]);
 		    z=j;
 		    // funcao para colocar os argumentos do commando nos respectivos args
-		    while(strsep(&str," ")){
-                printf("AAAAA");
-			    if (str[j]==' ' || str[j]=='\0') {
-			    	args[i] = malloc(sizeof(char)*(j-z));
-			    	strncpy(args[i],&str[z],j-z);
+		    while(j<strlen(str)+1){
+			    if (str[j]==' ') {
+			    	p->commands->args[i] = malloc(sizeof(char)*(j-z));
+			    	strncpy(p->commands->args[i],&str[z],j-z);
 			    	z = j + 1;
-			    	printf("arg: %s ", args[i]);
+			    	printf("arg: %s ", p->commands->args[i]);
 			    	i++;
-		    	if (str[j]=='\0') {
-		    		args[i] = NULL;
-				    }
+		        
+                } 
+                else if (str[j]=='\0'){
+			    	p->commands->args[i] = malloc(sizeof(char)*(j-z));
+			    	strncpy(p->commands->args[i],&str[z],j-z);
+			    	z = j + 1;
+			    	printf("arg: %s ",p->commands->args[i]);
+			    	i++;
+		    	
+		    		p->commands->args[i] = NULL;
+				    
 			        j++;
-		        }
-                LlCommand llc = newLLC(args[0],args);
-                return p;
+            
+                }
+                j++;
+            }
+                if (p->commands->args[i]==NULL)printf("arg: NULL\n");
+                for(int g =0;(p->commands->args[g])!=NULL;g++){
+                printf("args v2 : %s\n",p->commands->args[g]);
             }
         }else if (str[1]=='p'){
-            //ignora "-p"
+         
+            //ignora "-u"
             strsep(&str," ");
 
             //Gets pid from client
             p->pid_client = pid_client;
 
             //gets output files
-            p->output_file  = NULL;
+            p->output_file  = malloc(sizeof(char)*outputsize);
             p->priority  = 0;
+            
+            p->commands->args=malloc(sizeof(char*)*256);
 
-            //gets commands
-            int maxCommands = 1;
-            char *command;
+            int z=0,j=1,i=1;
+		    // ver quantidade de characteres ate o proximo espaco
+		    while(str[j] != ' '){
+			    j++;
+		    }
+		    j++;
+            // colocar o nome do commando no arg[0]
 
-            while((command = strsep(&str,"|")) != NULL){
-                //Caso de não haver espaço suficiente para os comandos
-                if(p->commandsCount == maxCommands){
-                    maxCommands *= 2;
-                    p->commands = realloc(p->commands, maxCommands * sizeof(char *));
+		    p->commands->args[0] = malloc(sizeof(char)*(j-z));
+
+		    strncpy(p->commands->args[0],&str[z],j-z-1);
+            p->commandsCount++;
+            printf("arg: %s ", p->commands->args[i]);
+		    z=j;
+		    // funcao para colocar os argumentos do commando nos respectivos args
+            LlCommand tmp = p->commands;
+		    while(j<strlen(str)+1){
+                if(str[j]== '|'){
+                tmp->next = newLLC();
+                tmp=tmp->next;
+                i=0;
+                j++;
                 }
-
-                //Coloca o comando na estrutura
-                LlCommand tmp;
+			    if (str[j]==' ') {
+			    	tmp->args[i] = malloc(sizeof(char)*(j-z));
+			    	strncpy(tmp->args[i],&str[z],j-z);
+			    	z = j + 1;
+			    	printf("arg: %s ", tmp->args[i]);
+			    	i++;
+		        
+                } 
+                else if (str[j]=='\0'){
+			    	tmp->args[i] = malloc(sizeof(char)*(j-z));
+			    	strncpy(tmp->args[i],&str[z],j-z);
+			    	z = j + 1;
+			    	printf("arg: %s ",tmp->args[i]);
+			    	i++;
+		    	
+		    		tmp->args[i] = NULL;
+				    
+			        j++;
+            
+                }
+                j++;
                 
-                p->commandsCount++;
             }
-
-            return p;
-        
+                if (p->commands->args[i]==NULL)printf("arg: NULL\n");
+                for(int g =0;(p->commands->args[g])!=NULL;g++){
+                printf("args v2 : %s\n",p->commands->args[g]);
+            
+            }
         }
     }
-    return 0;
+    return p;
 }
 
 void freeProcess(LinkedListProcess process){
@@ -167,16 +215,17 @@ void appendsProcess(LinkedListProcess l, LinkedListProcess p){
 void printProcessInfo(int fildes, LinkedListProcess process){
     char buffer[1024];
 
-    sprintf(buffer, "task #%d: process %s\0", process->task_number, process->output_file);
-    for(int i = 0; i < process->commandsCount ; i++) {
+    sprintf(buffer, "task #%d: process %s", process->task_number, process->output_file);
+    for(int i = 0; (process->commands->args[i])!= NULL ; i++) {
         strcat(buffer, " ");
-        strcat(buffer,process->commands->command);
+        strcat(buffer,process->commands->args[i]);
     }
 
     strcat(buffer,"\n");
     if(write(fildes, buffer, strlen(buffer))==-1){
         perror("write");
     }
+
 }
 
 LinkedListProcess removeProcessByChildPid(LinkedListProcess *list, pid_t pid){

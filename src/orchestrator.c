@@ -88,84 +88,17 @@ void handle_signalint(){
 // adicionar a queue 
 int addQueue(char * task, int pid_client, char* pid_name){
 	// output file
-	LinkedListProcess p = parseProcess(buff,pid_client);
-	p->output_file = malloc(strlen(output_path)+strlen(pid_name)+1);
+	LinkedListProcess p = parseProcess(buff,pid_client,strlen(output_path)+strlen(pid_name));
 	strcpy(p->output_file,output_path);
 	strcat(p->output_file,pid_name);
 	printf("Output file : %s\n",p->output_file);
-	//printProcessInfo(1,p);
-	//write(1,"OLA",4);
-	//for(int i = 0;hello[i] != NULL;i++)printf("args : %s",-args[i]);
-	freeProcess(p);
+	printProcessInfo(1,p);
+
 	//int fd = open(p->output_file,O_WRONLY | O_CREAT | O_TRUNC,0666);
-	//dup2(1,fd);
+	//dup2(fd,1);
+	//execvp(p->commands->args[0],p->commands->args);
+	freeProcess(p);
 
-	/*
-	// filho que vai executar o comando
-	// verificar se é u ou p
-	printf("OLA/n");
-	char* distinct;
-	int j = 0;
-	// passar o exec
-	while(buff[j] != ' '){
-			j++;
-	}
-	j++;
-	// passar o tempo
-	while(buff[j] != ' '){
-		j++;
-	}
-	j++;
-	distinct = &buff[j];
-
-	if(distinct[1] == 'u'){
-		// executar comando unico
-		char *args[256];
-		int i = 1;
-		int j=0;
-		int z=0;
-		//passar o -u
-		while(distinct[j] != ' '){
-			j++;
-		}
-		j++;
-		z = j;
-		// ver quantidade de characteres ate o proximo espaco
-		while(distinct[j] != ' '){
-			j++;
-		}
-		j++;
-		// colocar o nome do commando no arg[0]
-		args[0] = malloc(sizeof(char)*(j-z));
-		strncpy(args[0],&distinct[z],j-z);
-		z=j;
-		// funcao para colocar os argumentos do commando nos respectivos args
-		while(j<strlen(distinct)+1){
-			if (distinct[j]==' ' || distinct[j]=='\0') {
-				args[i] = malloc(sizeof(char)*(j-z));
-				strncpy(args[i],&distinct[z],j-z);
-				z = j + 1;
-				//printf("arg: %s ", args[i]);
-				i++;
-			 if (distinct[j]=='\0') {
-				args[i] = NULL;
-				}
-		
-			j++;
-		}
-		printf("Command : %s\n" , args[0]);
-		//for (int x = 0;args[x] == NULL;x++)printf("arg: %s ", args[x]);
-		printf("%s\n",args);
-		execvp(args[0],args);
-		perror("execvp");
-		_exit(1);
-	}
-	}else if(distinct[1] == 'p'){
-		//executar comando pipe
-	}else{
-		// status
-	}
-	*/
 	return 0;
 }
 
@@ -174,7 +107,7 @@ int addQueue(char * task, int pid_client, char* pid_name){
 
 int main(int argc, char* argv[]){
 
-	// Verificar se tem 3 argumentos
+	// Verificar argumentos
 	if (argc != 4) {
 		perror("Argumentos");
 		return -1;
@@ -182,10 +115,10 @@ int main(int argc, char* argv[]){
 
 	printf("Starting server...\nPid : %d\n",getpid());
 
-	// Path para onde os ficheiros finais vao	
+	// Guardar o caminho para a pasta onde vao ser guardados os outputs
 	output_path = argv[1];
 
-	// Make fifos
+	// Criar fifo para o servidor
 	if(mkfifo("./tmp/server_fifo",0666)==-1){
 	 	perror("Fifo server");
 	 	return -1;
@@ -195,7 +128,7 @@ int main(int argc, char* argv[]){
 	signal(SIGTERM,handle_signalterm);
 	signal(SIGINT,handle_signalint);
 
-	// // Descritores para os fifos
+	// Abrir fifo para o servidor
 	int server_fd = open("./tmp/server_fifo",O_RDONLY);
 	if(server_fd == -1){
 		perror("server fifo");
@@ -203,7 +136,6 @@ int main(int argc, char* argv[]){
 	}
 
 	int pid_client;
-	int i;
 	int status;
 		
 		// Ler fifo para onde o cliente escreve
@@ -212,11 +144,10 @@ int main(int argc, char* argv[]){
 			return 1;
 		}
 
+		// Criar um filho para tratar da informacao do cliente
 		if(fork()==0){
 			
-			// filho que vai tratar da informacao providenciada pelo cliente
-			
-			// Eliminar fifos
+			// Filho que vai tratar da informacao do cliente
 			char client_fifo[256];
 			char pid_name[256];
 			
@@ -227,6 +158,7 @@ int main(int argc, char* argv[]){
 
 			printf("Pid cliente : %s\n",pid_name);
 
+			// Criar fifos para o cliente
 			int read_client_fifo = open(client_fifo,O_RDONLY);
 			if(read_client_fifo == -1){
 				perror("fifo de leitura");
@@ -242,6 +174,7 @@ int main(int argc, char* argv[]){
 				return 1;
 			}
 
+			// Ler mensagem do cliente
 			int size = read(read_client_fifo,buff,BUFFER_SIZE);
 			if (size == -1){
 				perror("Read buff");
@@ -250,14 +183,19 @@ int main(int argc, char* argv[]){
 			buff[size] = '\0';
 			printf("Mensagem : %s\n",buff);
 
-			// verificar se o cliente quer status ou executar um comando
+			// Verificar se o cliente quer status ou executar um comando
 			if(buff[0] == 's'){
-				// cliente quer status
+				//cliente quer status
+				//enviar status
+				if(write(write_client_fifo,"Status",sizeof(char)*6)==-1){
+					perror("Write Status");
+					return 1;
+				}
 
 			}else{
 				//cliente quer executar um comando
 				if(fork()==0){
-					// filho que vai executar o comando
+					// Filho que vai executar o comando
 						/*
 						if(fd == -1){
 							perror("open file");
@@ -273,7 +211,7 @@ int main(int argc, char* argv[]){
 					wait(&status);
 				}
 			}
-			// filho informa cliente que o seu pedido ja foi concluido
+			// Enviar mensagem ao cliente a dizer que terminou
 			if(write(write_client_fifo,"Done",sizeof(char)*4)==-1){
 				perror("Write Done");
 				return 1;
@@ -283,10 +221,10 @@ int main(int argc, char* argv[]){
 			close(write_client_fifo);
 			close(read_client_fifo);
 
-			// filho termina 
+			// filho termina
 			_exit(0);
-
 		}else{
+		// pai que vai esperar pelo filho que trata da informacao do cliente
 		wait(&status);
 		is_open = 0;
 		}
