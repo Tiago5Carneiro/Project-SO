@@ -20,12 +20,6 @@ static volatile int max_process = 0;
 char* output_path;
 char buff[BUFFER_SIZE];
 
-sem_t *sem_pending;
-
-sem_t *sem_processing;
-
-sem_t *sem_current;
-
 LinkedListProcess processing = NULL;
 LinkedListProcess pending = NULL;
 LinkedListProcess done;
@@ -102,7 +96,9 @@ void handle_signalint(){
 int process(LinkedListProcess p){
 
 	if (fork()==0){
-
+		sem_t * sem_pending = sem_open("/semafro_pending",0);
+		sem_t * sem_processing = sem_open("/semafro_processing",O_CREAT,0);
+		sem_t * sem_current = sem_open("/semafro_current",0);
 		if(sem_wait(sem_current)==-1){
 				perror("Semaforo");
 				return 1;
@@ -252,9 +248,9 @@ int addQueue(char * task, int pid_client, char* pid_name, int task_number){
 	strcpy(p->output_file,output_path);
 	strcat(p->output_file,pid_name);
 	//printProcessInfo(1,p);
-	
-	if(sem_wait(sem_processing)==-1){
-		perror("Semaforo");
+	sem_t * sem_pending = sem_open("/semafro_pending",0);
+	if(sem_wait(sem_pending)==-1){
+		perror("Semaforo pending addqueue");
 		return 1;
 	}
 
@@ -262,8 +258,8 @@ int addQueue(char * task, int pid_client, char* pid_name, int task_number){
 	if (pending == NULL) pending = p;
 	else{appendsProcess(pending,p);}
 
-	if(sem_post(sem_processing)==-1){
-		perror("Semaforo");
+	if(sem_post(sem_pending)==-1){
+		perror("Semaforo pending addqueue");
 		return 1;
 	}
 	//int fd = open(p->output_file,O_WRONLY | O_CREAT | O_TRUNC,0666);
@@ -277,9 +273,9 @@ int addQueue(char * task, int pid_client, char* pid_name, int task_number){
 
 
 int main(int argc, char* argv[]){
-	sem_pending = sem_open("/semafro_pending",O_CREAT,0666);
-	sem_processing = sem_open("/semafro_processing",O_CREAT,0666);
-	sem_current = sem_processing = sem_open("/semafro_current",O_CREAT,0666);
+	 sem_t * sem_pending = sem_open("/semafro_pending",O_CREAT,0666);
+	 sem_t * sesem_processing = sem_open("/semafro_processing",O_CREAT,0666);
+	 sem_t * sem_current = sem_open("/semafro_current",O_CREAT,0666);
 	// Verificar argumentos
 	if (argc != 4) {
 		perror("Argumentos");
@@ -314,24 +310,24 @@ int main(int argc, char* argv[]){
 	// filho que vai tratar de passar os pending para processing
 	if(fork()==0){
 		// filho
+		sem_t * sem_pending = sem_open("/semafro_pending",0);
+		sem_t * sem_processing = sem_open("/semafro_processing",0);
+		sem_t * sem_current = sem_open("/semafro_current",0);
 		int i = 0;
-		//while(is_open){
+		while(is_open){
 			//usar mutex nos processing
-			if(sem_trywait(sem_current)==-1){
-					perror("Semaforo");
-					return 1;
-			}else{
+			if(sem_trywait(sem_current)==0){
 				i=current_processing;
 				if(sem_post(sem_processing)==-1){
-					perror("Semaforo");
+					perror("Semaforo current filho pending to process");
 					return 1;
 				}
-			}
-			//unmutex nos processing
+
+				//unmutex nos processing
 			if (i<max_process){
 				
 				if(sem_wait(sem_pending)==-1){
-						perror("Semaforo");
+						perror("Semaforo pending filho pending to process");
 						return 1;
 					
 				}
@@ -340,29 +336,33 @@ int main(int argc, char* argv[]){
 					LinkedListProcess tmp = removeProcessesHead(pending);
 					//usar mutex nos pending
 					if(sem_post(sem_pending)==-1){
-						perror("Semaforo");
+						perror("Semaforo pending filho pending to process");
 						return 1;
 					}
 					//usar mutex nos processing
 					if(sem_wait(sem_processing)==-1){
-						perror("Semaforo");
+						perror("Semaforo processing filho pending to process");
 						return 1;
 					}
 					appendsProcess(processing,tmp);
-					
+					printf("Appending process ...\n");
 					process(tmp);
 					//unmutex nos processing
 					if(sem_post(sem_processing)==-1){
-						perror("Semaforo");
+						perror("Semaforo processing filho pending to process");
 						return 1;
 					}
 				}
+
 				if(sem_post(sem_pending)==-1){
-						perror("Semaforo");
+						perror("Semaforo pending filho pending to process");
 						return 1;
 				}
 			}
-		//}
+
+			}
+			
+		}
 	}
 
 	int pid_client;
@@ -496,6 +496,8 @@ int main(int argc, char* argv[]){
 				//}
 
 		pid_client = 0;
+		int status;
+		wait(&status);
 	}
 
 	// Fechar descritor fifos
@@ -503,7 +505,7 @@ int main(int argc, char* argv[]){
 		
 	// Eliminar fifos
 	unlink("./tmp/server_fifo");
-	sem_unlink("/semafro_pending");
-	sem_unlink("/semafro_processing");
+	//sem_unlink("/semafro_pending");
+	//sem_unlink("/semafro_processing");
 	return 0;
 }
