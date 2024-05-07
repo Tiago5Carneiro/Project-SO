@@ -15,13 +15,13 @@
 #include <sys/mman.h>
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>
+#include <sys/time.h>
 
 #define MESSAGE_SIZE 4096
 
 // Linked List of Commands
 
 typedef struct llCommand{
-    char* command;
     char** args;
     struct llCommand *next;
 } *LlCommand;
@@ -31,8 +31,6 @@ LlCommand newLLC();
 void freeLLC(LlCommand list);
 
 void appendLLC(LlCommand list, char* c);
-
-char* getCommand(LlCommand, int n);
 
 char** getArgs(LlCommand llc,int n);
 
