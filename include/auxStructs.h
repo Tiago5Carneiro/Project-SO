@@ -30,6 +30,8 @@ void appendLLC(LlCommand list, char* c);
 
 char* getCommand(LlCommand, int n);
 
+char** getArgs(LlCommand llc,int n);
+
 /** Lista ligada com a informacao dos processos **/
 
 typedef struct linkedListProcess{
@@ -51,25 +53,12 @@ void freeProcess(LinkedListProcess process);
 
 void appendsProcess(LinkedListProcess l, LinkedListProcess p);
 
-LinkedListProcess removeProcessesHead(LinkedListProcess *list);
+LinkedListProcess removeProcessesHead(LinkedListProcess list);
 
 //Dá print da info do processo, para o ficheiro fornecido
 //Admite 'process' não nulo
 void printProcessInfo(int fildes, LinkedListProcess process);
 
-LinkedListProcess removeProcessByChildPid(LinkedListProcess *list, pid_t pid);
-
-struct semaphore{
-    Queue<process> q;
-    int value;
-};
-
-void P(struct semaphore s);
-
-void V(semaphore s);
-
-/** Outras **/
-
-ssize_t readln(int fd, char* line, size_t size);
+LinkedListProcess removeProcessByTaskNumber(LinkedListProcess list, int task_number);
 
 #endif

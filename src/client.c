@@ -190,6 +190,7 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
+	close(server_fifo);
 	// Abrir os fifos do cliente para leitura e escrita
 	if((write_fifo = open(client_fifo,O_WRONLY)) == -1){
 		perror("fifo escrita");

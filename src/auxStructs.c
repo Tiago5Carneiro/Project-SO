@@ -23,13 +23,6 @@ void freeLLC(LlCommand list){
     }
 }
 
-void appendsLLC(LlCommand llc, char* c, char** args){
-    LlCommand l = newLLC(c,args);
-    while (llc->next != NULL)
-        llc = llc->next;
-    llc->next = l;
-}
-
 char* getCommand(LlCommand llc,int n ){
     //Percorre a linked list, à procura do command
     LlCommand tmp;
@@ -38,6 +31,18 @@ char* getCommand(LlCommand llc,int n ){
 
     //Se tmp != NULL então encontrou o comando
     if(tmp != NULL) return tmp->command;
+
+    return NULL;
+}
+
+char** getArgs(LlCommand llc,int n ){
+    //Percorre a linked list, à procura do command
+    LlCommand tmp;
+    int i = 0;
+    for(tmp = llc; tmp != NULL && i<n; tmp = tmp->next) i++;
+
+    //Se tmp != NULL então encontrou o comando
+    if(tmp != NULL) return tmp->args;
 
     return NULL;
 }
@@ -55,7 +60,6 @@ LinkedListProcess parseProcess(char *str, int pid_client,int outputsize,int task
     if (str[0]=='s'){
 
     }else{
-            write(1,str,strlen(str)+1);
 
             //ignora "execute"
             strsep(&str," ");
@@ -78,7 +82,6 @@ LinkedListProcess parseProcess(char *str, int pid_client,int outputsize,int task
 		    while(j<strlen(str)+1){
                 switch(str[j]){
                     case '|':
-                        printf("\nNext command ->");
                         p->commandsCount++;
                         tmp->next = newLLC();
                         tmp=tmp->next;
@@ -93,7 +96,6 @@ LinkedListProcess parseProcess(char *str, int pid_client,int outputsize,int task
                         strncpy(tmp->args[i],&str[z],j-z);
                         j++;
                         z = j;
-                        printf(" arg: %s ", tmp->args[i]);
                         i++;
                         break;
                     case '\0':
@@ -101,7 +103,6 @@ LinkedListProcess parseProcess(char *str, int pid_client,int outputsize,int task
                         strncpy(tmp->args[i],&str[z],j-z);
                         j++;
                         z = j;
-                        printf(" arg: %s ",tmp->args[i]);
                         i++;
                         tmp->args[i] = NULL;
                         j++;
@@ -159,17 +160,18 @@ void printProcessInfo(int fildes, LinkedListProcess process){
 
 }
 
-LinkedListProcess removeProcessByChildPid(LinkedListProcess *list, pid_t pid){
-    if(list == NULL || *list == NULL) return NULL;
+// by task number
+LinkedListProcess removeProcessByTaskNumber(LinkedListProcess list, int task_number){
+    if(list == NULL) return NULL;
 
     LinkedListProcess prev = NULL, tmp;
 
-    for(tmp = *list; tmp != NULL && tmp->pid_child != pid ; prev = tmp, tmp = tmp->next);
+    for(tmp = list; tmp != NULL && tmp->task_number != task_number ; prev = tmp, tmp = tmp->next);
 
     if(tmp != NULL){
         //Se prev for NULL, entao o pid foi encontrado no primeiro elemento da lista
         if(prev == NULL){
-            *list = tmp->next;
+            list = tmp->next;
         }
         else{
             prev->next = tmp->next;
@@ -182,50 +184,9 @@ LinkedListProcess removeProcessByChildPid(LinkedListProcess *list, pid_t pid){
     return NULL;
 }
 
-LinkedListProcess removeProcessesHead(LinkedListProcess *list){
-    LinkedListProcess tmp = *list;
-    *list = tmp->next;
+LinkedListProcess removeProcessesHead(LinkedListProcess list){
+    LinkedListProcess tmp = list;
+    list = tmp->next;
     tmp->next = NULL;
     return tmp;
-}
-
-void P(struct semaphore s)
-{
-    if (s.value == 1) {
-        s.value = 0;
-    }
-    else {
-        s.q.push(P); 
-        sleep();
-    }
-}
-
-void V(semaphore s)
-{
-    if (s.q is empty) {
-        s.value = 1;
-    }
-    else {
- 
-        // Get a process from the Waiting Queue
-        Process p = q.front();
-        // Remove the process from waiting 
-        q.pop();
-        wakeup(p);
-    }
-}
-
-
-/** Outros **/
-
-ssize_t readln(int fd, char* line, size_t size) {
-    ssize_t bytes_read = read(fd, line, size);
-    if(!bytes_read) return 0;
-
-    size_t line_length = strcspn(line, "\n") + 1;
-    if(bytes_read < line_length) line_length = bytes_read;
-    line[line_length] = 0;
-
-    lseek(fd, line_length - bytes_read, SEEK_CUR);
-    return line_length;
 }
