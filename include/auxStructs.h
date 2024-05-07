@@ -11,6 +11,10 @@
 #include "signal.h"
 #include "sys/wait.h"
 #include <sys/queue.h>
+#include <semaphore.h>
+#include <sys/mman.h>
+#include <sys/stat.h>        /* For mode constants */
+#include <fcntl.h>
 
 #define MESSAGE_SIZE 4096
 

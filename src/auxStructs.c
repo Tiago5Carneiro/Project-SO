@@ -121,6 +121,7 @@ void freeProcess(LinkedListProcess process){
     if(process != NULL){
         free(process->output_file);
         freeLLC(process->commands);
+        if (process->next != NULL) freeProcess(process->next);
         free(process);
     }
 }
