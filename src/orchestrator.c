@@ -1,10 +1,10 @@
-#include <unistd.h> 	/* chamadas ao sistema: defs e decls essenciais */
-#include <fcntl.h>  	/* O_RDONLY, O_WRONLY, O_CREAT, O_APPEND, O_RDWR , O_TRUNC, O_EXCL, O_* */
-#include <stdlib.h> 	/* Malloc */
-#include <stdio.h>  	/* printf */
-#include <signal.h> 	/* signals (SIGTERM, SIGALARM)*/
-#include <sys/stat.h> 	/* mkfifo */
-#include <sys/wait.h> 	/* wait */
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <string.h>
 #include "../include/auxStructs.h"
@@ -12,233 +12,110 @@
 
 #define BUFFER_SIZE 256
 
+// ./orchestrator {output_folder} {parallel-tasks} {sched-policy}
+
 static volatile int is_open = 1;
 static volatile int current_processing = 0;
 static volatile int max_process = 0;
 
 LinkedListProcess processing = NULL;
 LinkedListProcess pending = NULL;
-LinkedListProcess done = NULL;	
+LinkedListProcess done = NULL;
 
 char* output_path;
 char buff[BUFFER_SIZE];
 
-// ./orchestrator {output_folder} {parallel-tasks} {sched-policy}
-
-// Funcao para dar flip a uma string
-void flip(char* string){
-    int i,j;
-    
+// Flips a string in place
+void flip(char* string) {
+    int i, j;
     char aux;
-
-    for (i = 0, j = strlen(string) - 1 ; i < j; i++,j--)
-    {
+    for (i = 0, j = strlen(string) - 1; i < j; i++, j--) {
         aux = string[i];
         string[i] = string[j];
         string[j] = aux;
     }
 }
 
-// Definir itoa para poder usar quando sao criados os fifos de cada cliente
-void itoa(int n, char* string){
-    int i, sign;
-
-    // Verificar o sinal 
-    if ((sign = n) < 0)n = -n;
-
-    i = 0;
-
-    // Gerar os digitos na ordem inversa
-    do
-    {                  
-    	// Prox digito       
+// Integer to ASCII conversion
+void itoa(int n, char* string) {
+    int i = 0, sign = n;
+    if (n < 0) n = -n;
+    do {
         string[i++] = n % 10 + '0';
-    } while ((n /= 10) > 0); // Eliminar digito
-    
-
-    if (sign < 0)
-        string[i++] = '-';
+    } while ((n /= 10) > 0);
+    if (sign < 0) string[i++] = '-';
     string[i] = '\0';
-
     flip(string);
 }
 
-// Funcao para lidar com o fecho do servidor
-void handle_signalterm(){
-	printf("Closing server...\n");
-
-	is_open=0;
-
-	unlink("./tmp/server_fifo");
+// Handles server termination (SIGTERM)
+void handle_signalterm() {
+    printf("Closing server...\n");
+    is_open = 0;
+    unlink("./tmp/server_fifo");
 }
 
-// Funcao para lidar com Ctrl + C
-void handle_signalint(){
-
-	printf("\n\nUNEXPECTED TERMINATION \n\n");
-
-	// Eliminar fifos
-	
-	// Colocar o handler para o sinal int (Ctrl + C) de volta para a funcao default do kernel (SIG_DFL)
-	signal(SIGINT,SIG_DFL);
-
-	// Mandar um singal sig int para si novamente 
-	kill(getpid(),SIGINT);
+// Handles unexpected termination (Ctrl+C)
+void handle_signalint() {
+    printf("\n\nUNEXPECTED TERMINATION \n\n");
+    unlink("./tmp/server_fifo");
+    signal(SIGINT, SIG_DFL);
+    kill(getpid(), SIGINT);
 }
 
-void status(LinkedListProcess p){
-	printf("Write fifo status");
-	
-	if (fork()==0){
-		// Criar fifo para o cliente
-		char writefifo[256];
-		strcpy(writefifo,"./tmp/r_");
+// Writes status to the client's FIFO
+void status(LinkedListProcess p) {
+    printf("Write fifo status");
 
-		// Transformar pid do cliente numa string
-		char pid_name[256];
-		itoa(p->pid_client,pid_name);
-		strcat(writefifo,pid_name);
-		
-		// Abrir fifo para escrita
-		int write_fifo = open(writefifo,O_WRONLY);
-		if (write_fifo==-1){
-			perror("Opening status fifo");
-			_exit(1);
-		}
+    if (fork() == 0) {
 
-		// Pending
-		LinkedListProcess tmp;
-		if(write(write_fifo,"Pending : \n",12) == -1){
-			perror("Write Pending");
-			_exit(1);
-		}
+        char writefifo[256], pid_name[256];
 
-		for(tmp = pending;tmp!=NULL;tmp=tmp->next){
-			if(write(write_fifo,"\n",1) == -1){
-				perror("Write Pending");
-				_exit(1);
-			}
-			printProcessInfo(write_fifo,tmp);
-		}
+        
+        itoa(p->pid_client, pid_name);
 
-	// Processing
-	if(write(write_fifo,"Processing : \n",15) == -1){
-		perror("Write Processing");
-		_exit(1);
-	}
+        snprintf(writefifo,256,"./tmp/r_%s",pid_name);
 
-	for(tmp = processing;tmp!=NULL;tmp=tmp->next){
-		if(write(write_fifo,"\n",1) == -1){
-			perror("Write Processing");
-			_exit(1);
-		}
-		printProcessInfo(write_fifo,tmp);
-		}
+        int write_fifo = open(writefifo, O_WRONLY);
+        if (write_fifo == -1) {
+            perror("Opening status fifo");
+            _exit(1);
+        }
 
-	// Done
-	if(write(write_fifo,"Done : \n",9) == -1){
-		perror("Write Done");
-		_exit(1);
-	}
+        // Write pending processes
+        LinkedListProcess tmp;
+        write(write_fifo, "Pending : \n", 12);
+        for (tmp = pending; tmp != NULL; tmp = tmp->next) {
+            write(write_fifo, "\n", 1);
+            printProcessInfo(write_fifo, tmp);
+        }
 
-	for(tmp = done;tmp!=NULL;tmp=tmp->next){
-		if (write(write_fifo,"\n",1)==-1){
-			perror("Write Done");
-			_exit(1);
-		} 
-		printProcessInfo(write_fifo,tmp);
-	}
+        // Write processing processes
+        write(write_fifo, "Processing : \n", 15);
+        for (tmp = processing; tmp != NULL; tmp = tmp->next) {
+            write(write_fifo, "\n", 1);
+            printProcessInfo(write_fifo, tmp);
+        }
 
-	close(write_fifo);
-	int server_fifo,read_fifo;
-	char readfifo[256];
+        // Write done processes
+        write(write_fifo, "Done\n", 9);
+        for (tmp = done; tmp != NULL; tmp = tmp->next) {
+            write(write_fifo, "\n", 1);
+            printProcessInfo(write_fifo, tmp);
+        }
 
-	// Obter o pid do processo
-	int pid = getpid();
-
-	// Transformar pid do cliente numa string
-	itoa(pid,pid_name);
-	strcpy(writefifo,"./tmp/w_");
-	strcat(writefifo,pid_name);
-
-	// Criar fifos para o cliente
-	if(mkfifo(writefifo,0666)==-1){
-		perror("Criacao fifo escrita");
-		_exit(1);
-	}
-
-		strcpy(readfifo,"./tmp/r_");
-		strcat(readfifo,pid_name);
-
-		// Criar fifos para o cliente
-		if(mkfifo(readfifo,0666)==-1){
-			perror("Criacao fifo leitura");
-			_exit(1);
-		}
-
-		// Abrir o fifo do servidor para escrever o pid do cliente
-		if((server_fifo = open("./tmp/server_fifo", O_WRONLY)) == -1){
-			perror("server fifo");
-			_exit(1);
-		}
-				
-		// Escrever o pid do cliente no fifo do servidor
-		if (write(server_fifo,&pid,sizeof(int))==-1){
-			perror("Write Pid Fifo");
-			_exit(1);
-		}
-
-		// Fechar descritor fifos
-		close(server_fifo);
-
-		// Abrir fifos para escrita e leitura
-		if((write_fifo = open(writefifo,O_WRONLY)) == -1){
-			perror("fifo escrita");
-			_exit(1);
-		}
-
-		if((read_fifo = open(readfifo,O_RDONLY)) == -1){
-			perror("fifo leitura");
-			_exit(1);
-		}
-
-		// p:task_number
-		char message[256];
-		strcpy(message,"p:");
-		char task_number[256];
-
-	// Transformar task number numa string
-	itoa(p->task_number,task_number);
-	strcat(message,task_number);
-
-	// Escrever mensagem para o servidor
-	if(write(write_fifo,message,strlen(message))==-1){
-		perror("Write Done");
-		_exit(1);
-	}
-
-	// Ler mensagem do servidor
-	int ex = read(read_fifo,buff,BUFFER_SIZE);
-	if(ex == -1){
-		perror("execute read command");
-		_exit(1);
-	}
-
-	//p:task
-	// Fechar descritores fifos
-	close(write_fifo);
-	close(read_fifo);
-	unlink(writefifo);
-	unlink(readfifo);
-	_exit(0);
-
-	}
+        close(write_fifo);
+        _exit(0);
+    }
+    wait(NULL);
 }
 
+// Processes a command and sets up pipes if necessary
 int process(LinkedListProcess p){
 	int pid_child;
 
 	// Criar o processo filho
+	printf("Commands : %d",p->commandsCount);
 	if ( (pid_child = fork()==0)){
 		
         //Abertura do ficheiro no qual ficará o resultado final de aplicar os comandos
@@ -261,7 +138,7 @@ int process(LinkedListProcess p){
 				
                 //É o único comando
                 if(commandsCount == 0){
-
+                	
                     if(fork() == 0){
                         //Redirecionamento do stdout para o ficheiro de output fornecido
                         dup2(output_fp, STDOUT_FILENO);
@@ -350,9 +227,8 @@ int process(LinkedListProcess p){
         //Esperar pelos processos filhos
 		for(breadth = 0; breadth < commandsCount ; breadth++) wait(NULL);
 
-		int server_fifo,write_fifo,read_fifo;
+		int server_fifo,write_fifo;
 		char writefifo[256];
-		char readfifo[256];
 
 		// Obter o pid do processo
 		int pid = getpid();
@@ -360,21 +236,12 @@ int process(LinkedListProcess p){
 
 		// Transformar pid do cliente numa string
 		itoa(pid,pid_name);
-		strcpy(writefifo,"./tmp/w_");
-		strcat(writefifo,pid_name);
+
+		snprintf(writefifo,256,"./tmp/w_%s",pid_name);
 
 		// Criar fifos para o cliente
 		if(mkfifo(writefifo,0666)==-1){
 			perror("Criacao fifo escrita");
-			_exit(1);
-		}
-
-		strcpy(readfifo,"./tmp/r_");
-		strcat(readfifo,pid_name);
-
-		// Criar fifos para o cliente
-		if(mkfifo(readfifo,0666)==-1){
-			perror("Criacao fifo leitura");
 			_exit(1);
 		}
 
@@ -399,19 +266,15 @@ int process(LinkedListProcess p){
 			_exit(1);
 		}
 
-		if((read_fifo = open(readfifo,O_RDONLY)) == -1){
-			perror("fifo leitura");
-			_exit(1);
-		}
-
 		// p:task_number
 		char message[256];
-		strcpy(message,"p:");
+
 		char task_number[256];
 
 		// Transformar task number numa string
 		itoa(p->task_number,task_number);
-		strcat(message,task_number);
+
+		snprintf(message,256,"p:%s",task_number);
 
 		// Escrever mensagem para o servidor
 		if(write(write_fifo,message,strlen(message))==-1){
@@ -419,203 +282,173 @@ int process(LinkedListProcess p){
 			_exit(1);
 		}
 
-		// Ler mensagem do servidor
-		int ex = read(read_fifo,buff,BUFFER_SIZE);
-		if(ex == -1){
-			perror("execute read command");
-			_exit(1);
-		}
-
-		//p:task
 		// Fechar descritores fifos
 		close(write_fifo);
-		close(read_fifo);
 		unlink(writefifo);
-		unlink(readfifo);
 	_exit(0);
+
 	}
-	else return pid_child;
+	return pid_child;
 }
 
-int manageQueue(int pip[2]){
+// Manages the process queue and communication with clients
+int manageQueue(int pip[2]) {
+    if (fork() == 0) {
+        close(pip[1]);
+        int process_id = 0, pid_client;
 
-	// Criar processo filho
-	if (fork()==0){
+        while (is_open) {
+            if (read(pip[0], &pid_client, sizeof(int)) == -1) {
+                perror("Read pipe in addQueue");
+                _exit(1);
+            }
 
-		// Fechar descritor de leitura
-		close(pip[1]);
+            char client_fifo[256], pid_name[256];
+            itoa(pid_client, pid_name);
 
-		int process_id = 0;
-		int pid_client;
+            snprintf(client_fifo,256,"./tmp/w_%s",pid_name);
 
-		// Enquanto o servidor estiver aberto
-		while(is_open){
-			
-			// Ler pid do cliente
-			if (read(pip[0],&pid_client,sizeof(int))==-1){
-				perror("Read pipe in addQueue");
-				_exit(1);
-			}
+            int read_client_fifo = open(client_fifo, O_RDONLY);
+            if (read_client_fifo == -1) {
+                perror("fifo de leitura");
+                _exit(1);
+            }
 
-			char client_fifo[256];
-			char pid_name[256];
+            int size = read(read_client_fifo, buff, BUFFER_SIZE);
+            if (size == -1) {
+                perror("Read buff");
+                _exit(1);
+            }
 
-			// Transformar pid do cliente numa string
-			itoa(pid_client,pid_name);
-			strcpy(client_fifo,"./tmp/w_");
-			strcat(client_fifo,pid_name);
-				
-			// Criar fifos para o cliente
-			int read_client_fifo = open(client_fifo,O_RDONLY);
-			if(read_client_fifo == -1){
-				perror("fifo de leitura");
-				_exit(1);
-			}
-					
-			// Ler mensagem do cliente
-			int size = read(read_client_fifo,buff,BUFFER_SIZE);
-			if (size == -1){
-				perror("Read buff");
-				_exit(1);
-			}
+            buff[size] = '\0';
 
-			strcpy(client_fifo,"./tmp/r_");
-			strcat(client_fifo,pid_name);
+            // Child processes that finished 
+            if (buff[0] == 'p') {
 
-			// Criar fifos para o cliente
-			int write_client_fifo = open(client_fifo,O_WRONLY);
-			if(write_client_fifo == -1){
-				perror("fifo de escrita");
-				_exit(1);
-			}
+                int done_task = atoi(&buff[2]); // Get task id to remove
 
-			// Adicionar o caracter de fim de string
-			buff[size] = '\0';
+                LinkedListProcess tmp = removeProcessByTaskNumber(processing, done_task); // Remove task from processing
 
-			// Verificar se a mensagem e para fechar o servidor
-			if (buff[0]=='p'){
-				// p:task_number
-				int done_task = atoi(&buff[2]);
+                appendsProcess(done, tmp); // Append process to the done queue
 
-				// Remover o processo da lista de processamento
-				LinkedListProcess tmp = removeProcessByTaskNumber(processing,done_task);
+                write(1, "Done : ", 7);
+                printProcessInfo(1, done);
 
-				// Adicionar o processo a lista de processos feitos
-				if (done == NULL) done = tmp;
-				else appendsProcess(done,tmp);
+                // Start next pending process if possible 
+                if (pending != NULL) {
 
-				write(1,"Done : ",7);
-				printProcessInfo(1,done);
+                    tmp = removeProcessesHead(pending); // Get highest priority process 
 
-				// Verificar se ha processos pendentes
-				if(pending !=NULL){
-					tmp = removeProcessesHead(pending);
+                    appendsProcess(processing,tmp); // Append to processing 
 
-					// Adicionar o processo a lista de processamento
-					if (processing == NULL) processing = tmp;
-					else for(LinkedListProcess tmp2 = processing;tmp2->next!=NULL;tmp2=tmp2->next) tmp2->next = tmp;
-					
-					write(write_client_fifo,"Task accepted ...\n",19);
-					if (strcmp(tmp->commands->args[0],"status")) {
+                    itoa(pid_client, pid_name);
+                    snprintf(client_fifo,256,"./tmp/r_%s",pid_name);
 
-						process(tmp);
-						}
-					else {
-						status(tmp);
-				}
-				}
-				current_processing--;
-				close(write_client_fifo);
-				// situacao de processing child escrever para o fifo
-	
-			}
-			else{ 
-				process_id++;
-				LinkedListProcess p = parseProcess(buff,pid_client,strlen(output_path)+strlen(pid_name),process_id);
-				strcpy(p->output_file,output_path);
-				strcat(p->output_file,pid_name);
-				if (current_processing < max_process){
-					if (processing == NULL) processing = p;
-					else appendsProcess(processing,p);
-					current_processing++;
-					write(1,"Processing : ",13);
-					printProcessInfo(1,p);
-					write(write_client_fifo,"Task accepted ...",18);
-					if (strcmp(p->commands->args[0],"status")) {
-						process(p);
-					}
-					else {
-						status(p);
-				}
-				}else{
-				
-					if (pending == NULL) {
-						pending = p;
-					}else{
-						appendsProcess(pending,p);
-					}
-	
-				}
-			}
-			close(write_client_fifo);
-			
-		}
-		wait(NULL);
-		freeProcess(pending);
-		freeProcess(processing);
-		freeProcess(done);
-	}
-	return 0;
+            		int write_client_fifo = open(client_fifo, O_WRONLY);
+            		if (write_client_fifo == -1) {
+                		perror("fifo de escrita");
+                		_exit(1);
+            		}
+
+                    write(write_client_fifo, "Task accepted ...\n", 19);
+
+                    // Call status or process depending on which type of requrest it is
+                    if (strcmp(tmp->commands->args[0], "status")) process(tmp);
+                    else status(tmp);
+                }
+                else current_processing--;
+
+            } 
+            // Request came from a client
+            else {
+
+            	snprintf(client_fifo,256,"./tmp/r_%s",pid_name);
+
+            	int write_client_fifo = open(client_fifo, O_WRONLY);
+            	if (write_client_fifo == -1) {
+                	perror("fifo de escrita");
+                	_exit(1);
+            	}
+
+                process_id++;
+                LinkedListProcess p = parseProcess(buff, pid_client, strlen(output_path) + strlen(pid_name), process_id); // Parse request
+
+                strcpy(p->output_file,output_path);
+                strcat(p->output_file,pid_name);
+                // Check if it is possible to start processing the current request 
+                if (current_processing < max_process) {
+
+                    appendsProcess(processing, p);
+                    current_processing++;
+
+                    write(1, "Processing : ", 13);
+                    printProcessInfo(1, p);
+                    write(write_client_fifo, "Task accepted ...\n", 19);
+
+                    // Checking the type of request 
+                    if (strcmp(p->commands->args[0], "status")) process(p);
+                    else status(p);
+                } else appendsProcess(pending, p); // If not possible to start processing rn just add to the pending 
+                
+            }
+        }
+
+        // If out of the while loop, wait for all children then free up the queue's
+        wait(NULL);
+        freeProcess(pending);
+        freeProcess(processing);
+        freeProcess(done);
+        _exit(0);
+    }
+    return 0;
 }
 
-int main(int argc, char* argv[]){
-	
-	// Verificar argumentos
-	if (argc != 4) {
-		perror("Argumentos");
-		_exit(1);
-	}
+// Main function to start the server
+int main(int argc, char* argv[]) {
 
-	printf("Starting server...\nPid : %d\n",getpid());
+	signal(SIGINT, handle_signalint);
+    signal(SIGTERM, handle_signalterm);
 
-	// Guardar o caminho para a pasta onde vao ser guardados os outputs
-	output_path = argv[1];
-	max_process = atoi(argv[2]);
+    if (argc != 4) {
+        perror("Argumentos");
+        _exit(1);
+    }
 
-	// Criar fifo para o servidor
-	if(mkfifo("./tmp/server_fifo",0666)==-1){
-	 	perror("Fifo server");
-	 	_exit(1);
-	 }
+    printf("Starting server...\nPid : %d\n", getpid());
+    output_path = argv[1];
+    max_process = atoi(argv[2]);
 
-	// Indicar a funcao que vai tratar do sinal sigterm
-	signal(SIGTERM,handle_signalterm);
-	signal(SIGINT,handle_signalint);
+    if (mkfifo("./tmp/server_fifo", 0666) == -1) {
+        perror("Fifo server");
+        _exit(1);
+    }
 
-	int pid_client;
-	int pip[2];
-	pipe(pip);
-	manageQueue(pip);
+    int server_fifo = open("./tmp/server_fifo", O_RDONLY);
+    if (server_fifo == -1) {
+        perror("Open server_fifo");
+        _exit(1);
+    }
 
-	int server_fd = open("./tmp/server_fifo",O_RDONLY);
-		if(server_fd == -1){
-			perror("server fifo");
-			_exit(1);
-		}
+    int pipe_fd[2];
+    if (pipe(pipe_fd) == -1) {
+        perror("Pipe");
+        _exit(1);
+    }
 
-	close(pip[0]);
-	int n;
-	while((n = read(server_fd, &pid_client, sizeof(int))) >= 0){
-		
-		if (n!=0){
-			if(write(pip[1],&pid_client,sizeof(int))== -1){
-		 		perror("Write pid");
-		 		_exit(1);
-			}
-		}
-	}
-	// Fechar descritor fifos
-	close(server_fd);
+    manageQueue(pipe_fd);
 
-	return 0;
+    while (is_open) {
+        int pid_client;
+        if (read(server_fifo, &pid_client, sizeof(int)) == -1) {
+            perror("Read pid client");
+            _exit(1);
+        }
+        write(pipe_fd[1], &pid_client, sizeof(int));
+    }
+
+    wait(NULL);
+    close(server_fifo);
+    unlink("./tmp/server_fifo");
+
+    return 0;
 }

@@ -133,17 +133,21 @@ void freeProcess(LinkedListProcess process){
 // Appends a process to the linked list
 void appendsProcess(LinkedListProcess l, LinkedListProcess p){
 
-    LinkedListProcess next = l->next;
-
-    //Percorre a linked list até encontrar um processo com prioridade menor que o processo a adicionar
-    while(next != NULL && l->priority >= p->priority){
-        l = l->next;
-        next = l->next;
+    if (l == NULL) l=p;
+    else
+    {
+        LinkedListProcess next = l->next;
+    
+        //Percorre a linked list até encontrar um processo com prioridade menor que o processo a adicionar
+        while(next != NULL && l->priority >= p->priority){
+            l = l->next;
+            next = l->next;
+        }
+    
+        //Adiciona o processo à linked list
+        p->next = next;
+        l->next = p;
     }
-
-    //Adiciona o processo à linked list
-    p->next = next;
-    l->next = p;
 }
 
 // Prints the process info to the file descriptor
