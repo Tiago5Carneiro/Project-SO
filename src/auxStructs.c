@@ -23,7 +23,9 @@ void freeLLC(LlCommand list){
 }
 
 // Gets the arguments of the command
-char** getArgs(LlCommand llc,int n ){
+char** getArgs(LlCommand llc,int n){
+    if (n==0) return llc->args;
+
     LlCommand tmp;
     int i = 0;
 
@@ -115,6 +117,7 @@ LinkedListProcess parseProcess(char *str, int pid_client,int outputsize,int task
             }
         }
     //Retorna o processo
+    printf("Command : %s\n Args : %s",p->commands->args[0],p->commands->args[1]);
     return p;
     }
 
@@ -179,6 +182,8 @@ LinkedListProcess removeProcessByTaskNumber(LinkedListProcess list, int task_num
 
     //Se a lista for NULL, retorna NULL
     if(list == NULL) return NULL;
+
+    if (list->task_number==task_number) return list;
 
     LinkedListProcess prev = NULL, tmp;
 

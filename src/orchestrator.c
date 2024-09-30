@@ -14,6 +14,11 @@
 
 // ./orchestrator {output_folder} {parallel-tasks} {sched-policy}
 
+// ./bin/client execute 500 -u "ls -l | cat" 
+// the above works
+// ./bin/client execute 500 -u "ls -l"
+// the above does not work
+
 static volatile int is_open = 1;
 static volatile int current_processing = 0;
 static volatile int max_process = 0;
@@ -24,6 +29,13 @@ LinkedListProcess done = NULL;
 
 char* output_path;
 char buff[BUFFER_SIZE];
+
+int countDigit(long long n)
+{
+    if (n/10 == 0)
+        return 1;
+    return 1 + countDigit(n / 10);
+}
 
 // Flips a string in place
 void flip(char* string) {
@@ -64,23 +76,10 @@ void handle_signalint() {
 }
 
 // Writes status to the client's FIFO
-void status(LinkedListProcess p) {
+void status(LinkedListProcess p, int write_fifo) {
     printf("Write fifo status");
 
     if (fork() == 0) {
-
-        char writefifo[256], pid_name[256];
-
-        
-        itoa(p->pid_client, pid_name);
-
-        snprintf(writefifo,256,"./tmp/r_%s",pid_name);
-
-        int write_fifo = open(writefifo, O_WRONLY);
-        if (write_fifo == -1) {
-            perror("Opening status fifo");
-            _exit(1);
-        }
 
         // Write pending processes
         LinkedListProcess tmp;
@@ -115,7 +114,6 @@ int process(LinkedListProcess p){
 	int pid_child;
 
 	// Criar o processo filho
-	printf("Commands : %d",p->commandsCount);
 	if ( (pid_child = fork()==0)){
 		
         //Abertura do ficheiro no qual ficará o resultado final de aplicar os comandos
@@ -185,7 +183,7 @@ int process(LinkedListProcess p){
                     close(output_fp);
 
                     //Execucao do comando
-                    execvp(args[0],args);
+                    execvp(command,args);
                 }
                 else{
                     //Fecha o extremo de leitura do pipe
@@ -212,7 +210,7 @@ int process(LinkedListProcess p){
                     close(pipes[breadth][1]);
 
                     //Execucao do comando
-                    execvp(args[0],args);
+                    execvp(command,args);
                 }
                 else{
                     //Fecha o extremo de leitura do pipe
@@ -271,13 +269,14 @@ int process(LinkedListProcess p){
 
 		char task_number[256];
 
+		int digits = countDigit(p->task_number);
 		// Transformar task number numa string
 		itoa(p->task_number,task_number);
 
 		snprintf(message,256,"p:%s",task_number);
-
+		write(1,message,2 + digits);
 		// Escrever mensagem para o servidor
-		if(write(write_fifo,message,strlen(message))==-1){
+		if(write(write_fifo,message,2+digits)==-1){
 			perror("Write Done");
 			_exit(1);
 		}
@@ -291,77 +290,111 @@ int process(LinkedListProcess p){
 	return pid_child;
 }
 
-// Manages the process queue and communication with clients
-int manageQueue(int pip[2]) {
-    if (fork() == 0) {
-        close(pip[1]);
-        int process_id = 0, pid_client;
+// Main function to start the server
+int main(int argc, char* argv[]) {
 
-        while (is_open) {
-            if (read(pip[0], &pid_client, sizeof(int)) == -1) {
-                perror("Read pipe in addQueue");
-                _exit(1);
-            }
+	signal(SIGINT, handle_signalint);
+    signal(SIGTERM, handle_signalterm);
 
-            char client_fifo[256], pid_name[256];
-            itoa(pid_client, pid_name);
+    if (argc != 4) {
+        perror("Argumentos");
+        _exit(1);
+    }
 
-            snprintf(client_fifo,256,"./tmp/w_%s",pid_name);
+    printf("Starting server...\nPid : %d\n", getpid());
+    output_path = argv[1];
+    max_process = atoi(argv[2]);
 
-            int read_client_fifo = open(client_fifo, O_RDONLY);
-            if (read_client_fifo == -1) {
-                perror("fifo de leitura");
-                _exit(1);
-            }
+    if (mkfifo("./tmp/server_fifo", 0666) == -1) {
+        perror("Fifo server");
+        _exit(1);
+    }
 
-            int size = read(read_client_fifo, buff, BUFFER_SIZE);
-            if (size == -1) {
-                perror("Read buff");
-                _exit(1);
-            }
+    int server_fifo;
+    
 
-            buff[size] = '\0';
+    int process_id = 0;
+    int pid_client;
+    int read_size;
+    while ((server_fifo = open("./tmp/server_fifo", O_RDONLY))) {
 
-            // Child processes that finished 
-            if (buff[0] == 'p') {
+    	if (server_fifo == -1) {
+        	perror("Open server_fifo");
+        	_exit(1);
+    	}
 
-                int done_task = atoi(&buff[2]); // Get task id to remove
+    	if ((read_size = read(server_fifo, &pid_client, sizeof(int)))==-1){
+    		perror("Read server_fifo");
+        	_exit(1);
+    	}
 
-                LinkedListProcess tmp = removeProcessByTaskNumber(processing, done_task); // Remove task from processing
+    	strcpy(buff,"");
 
-                appendsProcess(done, tmp); // Append process to the done queue
+        char client_fifo[256], pid_name[256];
+        itoa(pid_client, pid_name);
 
-                write(1, "Done : ", 7);
-                printProcessInfo(1, done);
+        snprintf(client_fifo,256,"./tmp/w_%s",pid_name);
 
-                // Start next pending process if possible 
-                if (pending != NULL) {
+        int read_client_fifo = open(client_fifo, O_RDONLY);
+        if (read_client_fifo == -1) {
+            perror("fifo de leitura");
+            _exit(1);
+        }
 
-                    tmp = removeProcessesHead(pending); // Get highest priority process 
+        int size = read(read_client_fifo, buff, BUFFER_SIZE);
+        if (size == -1) {
+           perror("Read buff");
+           _exit(1);
+        }
 
-                    appendsProcess(processing,tmp); // Append to processing 
+        buff[size] = '\0';
 
-                    itoa(pid_client, pid_name);
-                    snprintf(client_fifo,256,"./tmp/r_%s",pid_name);
+        // Child processes that finished 
+        if (buff[0] == 'p') {
+        	read_size= read_size-2;
+        	char * tasknumber = malloc(read_size);
+        	strncpy(&buff[2],tasknumber,read_size);
+            int done_task = atoi(tasknumber); // Get task id to remove
+            write(1,tasknumber,read_size);
+            free(tasknumber);
+            printf("Task number : %d", done_task);
+            LinkedListProcess tmp = removeProcessByTaskNumber(processing, done_task); // Remove task from processing
 
-            		int write_client_fifo = open(client_fifo, O_WRONLY);
-            		if (write_client_fifo == -1) {
-                		perror("fifo de escrita");
-                		_exit(1);
-            		}
+            appendsProcess(done, tmp); // Append process to the done queue
+            if (done == NULL) done=tmp;
+            write(1, "Done : ", 7);
+            printProcessInfo(1, done);
 
-                    write(write_client_fifo, "Task accepted ...\n", 19);
+            // Start next pending process if possible 
+            if (pending != NULL) {
 
-                    // Call status or process depending on which type of requrest it is
-                    if (strcmp(tmp->commands->args[0], "status")) process(tmp);
-                    else status(tmp);
+                tmp = removeProcessesHead(pending); // Get highest priority process 
+
+                appendsProcess(processing,tmp); // Append to processing 
+
+                itoa(pid_client, pid_name);
+                snprintf(client_fifo,256,"./tmp/r_%s",pid_name);
+
+           		int write_client_fifo = open(client_fifo, O_WRONLY);
+           		if (write_client_fifo == -1) {
+               		perror("fifo de escrita");
+               		_exit(1);
+           		}
+
+                write(write_client_fifo, "Task accepted ...\n", 19);
+
+                // Call status or process depending on which type of requrest it is
+                if (strcmp(tmp->commands->args[0], "status")) {
+                    close(write_client_fifo);
+                    process(tmp);
                 }
-                else current_processing--;
+                   else status(tmp,write_client_fifo);
+               }
+               else current_processing--;
 
-            } 
-            // Request came from a client
-            else {
-
+           } 
+           // Request came from a client
+           else{
             	snprintf(client_fifo,256,"./tmp/r_%s",pid_name);
 
             	int write_client_fifo = open(client_fifo, O_WRONLY);
@@ -386,67 +419,22 @@ int manageQueue(int pip[2]) {
                     write(write_client_fifo, "Task accepted ...\n", 19);
 
                     // Checking the type of request 
-                    if (strcmp(p->commands->args[0], "status")) process(p);
-                    else status(p);
+                    if (strcmp(p->commands->args[0], "status")) {
+                    	close(write_client_fifo);
+                    	process(p);
+                    }
+                    else status(p,write_client_fifo);
                 } else appendsProcess(pending, p); // If not possible to start processing rn just add to the pending 
                 
             }
-        }
+            close(server_fifo);
 
+    }
         // If out of the while loop, wait for all children then free up the queue's
-        wait(NULL);
-        freeProcess(pending);
-        freeProcess(processing);
-        freeProcess(done);
-        _exit(0);
-    }
-    return 0;
-}
-
-// Main function to start the server
-int main(int argc, char* argv[]) {
-
-	signal(SIGINT, handle_signalint);
-    signal(SIGTERM, handle_signalterm);
-
-    if (argc != 4) {
-        perror("Argumentos");
-        _exit(1);
-    }
-
-    printf("Starting server...\nPid : %d\n", getpid());
-    output_path = argv[1];
-    max_process = atoi(argv[2]);
-
-    if (mkfifo("./tmp/server_fifo", 0666) == -1) {
-        perror("Fifo server");
-        _exit(1);
-    }
-
-    int server_fifo = open("./tmp/server_fifo", O_RDONLY);
-    if (server_fifo == -1) {
-        perror("Open server_fifo");
-        _exit(1);
-    }
-
-    int pipe_fd[2];
-    if (pipe(pipe_fd) == -1) {
-        perror("Pipe");
-        _exit(1);
-    }
-
-    manageQueue(pipe_fd);
-
-    while (is_open) {
-        int pid_client;
-        if (read(server_fifo, &pid_client, sizeof(int)) == -1) {
-            perror("Read pid client");
-            _exit(1);
-        }
-        write(pipe_fd[1], &pid_client, sizeof(int));
-    }
-
-    wait(NULL);
+	wait(NULL);
+    freeProcess(pending);
+    freeProcess(processing);
+    freeProcess(done);
     close(server_fifo);
     unlink("./tmp/server_fifo");
 
